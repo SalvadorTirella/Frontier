@@ -335,7 +335,13 @@ const UIManager = {
     window.addEventListener('resize', onResize);
     this.disposers.push(() => window.removeEventListener('resize', onResize));
 
-    const onFs = () => { this._fit(); if (this.scene.engine) this.scene.resize(); };
+    const onFs = () => {
+      this._fit();
+      if (this.scene.engine) this.scene.resize();
+      EventBus.emit('fullscreen:changed', {
+        active: !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement)
+      });
+    };
     document.addEventListener('fullscreenchange', onFs);
     document.addEventListener('webkitfullscreenchange', onFs);
     this.disposers.push(() => {
