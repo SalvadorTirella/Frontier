@@ -31,6 +31,8 @@ export default class SettingsMenu {
     this._bind();
     EventBus.on('screen:opened', ({ id }) => { if (id === 'settings') this.syncUI(); });
     EventBus.on('quality:changed', () => this.syncUI());
+    // los toggles/sliders emiten settings:changed → refrescar estado visual
+    EventBus.on('settings:changed', () => this.syncUI());
     EventBus.on('perf:fps', ({ fps }) => setTxt(this.fpsEl, `${Math.round(fps)} FPS`));
   }
 

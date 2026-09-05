@@ -13,26 +13,37 @@
 }
 
 /* ================= TOP BAR ================= */
+/* Barra superior RETRATO: 2 filas (métricas arriba · economía/estado abajo).
+   Los grupos se disuelven (display:contents) para colocar cada chip.     */
 .hud-top {
   top: 0;
   height: var(--hud-top);
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
-  gap: 20px;
-  padding: 0 22px;
+  grid-template-columns: 1fr auto auto auto 1fr;
+  grid-template-rows: auto auto;
+  align-content: center;
+  gap: 6px 12px;
+  padding: 8px 16px;
   border-bottom: 1px solid var(--cyan-dim);
   clip-path: polygon(
-    0 0, 100% 0, 100% calc(100% - 16px), calc(100% - 30px) 100%,
-    30px 100%, 0 calc(100% - 16px)
+    0 0, 100% 0, 100% calc(100% - 14px), calc(100% - 26px) 100%,
+    26px 100%, 0 calc(100% - 14px)
   );
 }
 #screen-battle.active .hud-top { animation: hudTopIn 0.5s var(--ease) both; }
 
-.hud-left, .hud-right { display: flex; align-items: center; gap: 16px; min-width: 0; }
-.hud-right { justify-content: flex-end; }
+.hud-left, .hud-center, .hud-right { display: contents; }
 
-.meter-block { width: 176px; flex: none; }
+.meter-block.player  { grid-column: 1; grid-row: 1; justify-self: start; }
+.wave-chip           { grid-column: 3; grid-row: 1; justify-self: center; }
+.meter-block.enemy   { grid-column: 5; grid-row: 1; justify-self: end; }
+.credits-chip        { grid-column: 1; grid-row: 2; justify-self: start; }
+.supply-chip         { grid-column: 2; grid-row: 2; justify-self: start; }
+.hostiles-chip       { grid-column: 3; grid-row: 2; justify-self: center; }
+.combo-chip          { grid-column: 4; grid-row: 2; justify-self: center; }
+#hud-pause-btn       { grid-column: 5; grid-row: 2; justify-self: end; }
+
+.meter-block { width: 150px; flex: none; }
 .meter-label { display: block; font-size: 11px; font-weight: 700; letter-spacing: 0.22em; color: var(--ink-dim); margin-bottom: 4px; }
 .meter-block.enemy .meter-label { text-align: right; color: #d98a92; }
 
@@ -40,7 +51,7 @@
 .credits-chip svg { width: 26px; height: 26px; filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.5)); }
 .chip-col { display: flex; flex-direction: column; }
 .chip-label { font-size: 10px; font-weight: 700; letter-spacing: 0.24em; color: var(--ink-faint); }
-.chip-value { font-size: 22px; line-height: 1; letter-spacing: 0.06em; }
+.chip-value { font-size: 17px; line-height: 1; letter-spacing: 0.06em; }
 .chip-value.amber { text-shadow: 0 0 14px rgba(255, 215, 0, 0.55); }
 .chip-value.warn { color: var(--red); }
 .chip-value.red { color: var(--red); text-shadow: 0 0 12px rgba(255, 71, 87, 0.5); }
@@ -59,17 +70,19 @@
 .combo-timer i { display: block; height: 100%; background: var(--amber); box-shadow: 0 0 8px rgba(255, 215, 0, 0.7); }
 
 /* ================= BOTTOM BAR ================= */
+/* Barra inferior RETRATO: reservas + habilidad arriba, tienda debajo (4 cartas). */
 .hud-bottom {
   bottom: 0;
   height: var(--hud-bottom);
   display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: 26px;
-  padding: 0 22px;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto;
+  align-content: center;
+  gap: 8px 14px;
+  padding: 10px 14px 14px;
   border-top: 1px solid var(--cyan-dim);
   clip-path: polygon(
-    30px 0, calc(100% - 30px) 0, 100% 16px, 100% 100%, 0 100%, 0 16px
+    26px 0, calc(100% - 26px) 0, 100% 14px, 100% 100%, 0 100%, 0 14px
   );
 }
 #screen-battle.active .hud-bottom { animation: hudBottomIn 0.5s var(--ease) both; }
@@ -84,16 +97,17 @@
 }
 
 .reserves {
+  grid-column: 1; grid-row: 1; justify-self: start;
   display: grid;
-  grid-template-columns: repeat(4, 58px);
-  gap: 8px;
+  grid-template-columns: repeat(4, 52px);
+  gap: 7px;
 }
 .reserves .block-label { grid-column: 1 / -1; margin-bottom: 2px; }
 .reserve-slot {
   position: relative;
   display: inline-grid;
   place-items: center;
-  width: 58px; height: 62px;
+  width: 52px; height: 54px;
   background:
     linear-gradient(165deg, rgba(10, 22, 38, 0.85), rgba(5, 11, 20, 0.75)) padding-box,
     linear-gradient(135deg, rgba(0, 198, 255, 0.3), rgba(0, 198, 255, 0.06)) border-box;
@@ -111,12 +125,12 @@
 .ability {
   --cd: 0;
   position: relative;
-  justify-self: center;
+  grid-column: 2; grid-row: 1; justify-self: end; align-self: end;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 3px;
-  width: 116px; height: 92px;
+  width: 110px; height: 78px;
   color: var(--amber);
   background:
     linear-gradient(165deg, rgba(34, 28, 7, 0.9), rgba(18, 15, 4, 0.85)) padding-box,
@@ -142,19 +156,23 @@
 .ability.charging { color: var(--ink-dim); filter: saturate(0.5); }
 .ability.ready-pulse { animation: readyPulse 1.6s ease-in-out infinite; }
 
-/* shop */
-.shop { display: flex; align-items: flex-end; gap: 12px; position: relative; }
-.shop .block-label { position: absolute; top: 2px; left: 2px; z-index: 2; }
+/* shop — 4 cartas a ancho completo en la fila inferior */
+.shop {
+  grid-column: 1 / -1; grid-row: 2;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.shop .block-label { grid-column: 1 / -1; position: static; text-align: center; margin-bottom: 0; }
 .buy-card {
   position: relative;
   display: grid;
-  grid-template-columns: 40px 1fr;
+  grid-template-columns: 38px 1fr;
   grid-template-rows: auto auto auto;
-  column-gap: 10px;
+  column-gap: 8px;
   align-items: center;
-  width: 168px; height: 88px;
-  margin-top: 14px;
-  padding: 8px 12px;
+  width: 100%; height: 76px;
+  padding: 6px 9px;
   text-align: left;
   color: var(--ink);
   background:
@@ -237,8 +255,8 @@
 }
 .wave-banner.play { animation: bannerTrack 2.3s var(--ease) both; }
 .banner-main {
-  font-size: 56px;
-  letter-spacing: 0.22em;
+  font-size: 38px;
+  letter-spacing: 0.18em;
   color: var(--cyan);
   text-shadow: 0 0 30px rgba(0, 198, 255, 0.6), 0 2px 0 rgba(0, 0, 0, 0.6);
 }

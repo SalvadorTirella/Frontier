@@ -97,9 +97,9 @@ body.no-particles .css-particles { display: none; }
 .load-eyebrow { font-size: 14px; letter-spacing: 0.34em; color: var(--cyan); opacity: 0.85; }
 .load-logo {
   margin-top: 14px;
-  font-size: 58px;
-  line-height: 1.04;
-  letter-spacing: 0.06em;
+  font-size: 42px;
+  line-height: 1.06;
+  letter-spacing: 0.05em;
   color: var(--ink);
   animation: breatheGlow 3s ease-in-out infinite;
 }
@@ -146,9 +146,10 @@ body.no-particles .css-particles { display: none; }
   position: absolute;
   inset: 0;
   display: grid;
-  grid-template-columns: 1.22fr 0.78fr;
-  gap: 40px;
-  padding: 58px 72px 40px;
+  grid-template-columns: 1fr;
+  gap: 24px;
+  padding: 34px 40px 30px;
+  overflow-y: auto;
   align-items: center;
 }
 .menu-left { min-width: 0; }
@@ -164,7 +165,7 @@ body.no-particles .css-particles { display: none; }
   margin-top: 16px;
   font-family: var(--font-display);
   font-weight: 400;
-  font-size: 60px;
+  font-size: 42px;
   line-height: 1.02;
   letter-spacing: 0.04em;
   color: var(--ink);
@@ -337,8 +338,8 @@ button.sys-chip:hover { transform: translateY(-2px); filter: brightness(1.35) dr
 }
 .results-sub { margin-top: 12px; font-size: 15px; letter-spacing: 0.28em; color: var(--ink-dim); }
 
-.results-panel { width: 780px; max-width: 94%; padding: 26px 30px; }
-.res-grid { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 28px; }
+.results-panel { width: 620px; max-width: 94%; padding: 24px 26px; }
+.res-grid { display: grid; grid-template-columns: 1fr; gap: 20px; }
 .res-row {
   display: flex;
   align-items: baseline;
