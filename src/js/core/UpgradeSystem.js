@@ -31,6 +31,14 @@ export default class UpgradeSystem {
     return null;
   }
 
+  /** Branch name (weapons / armor / logistics) owning a node id. */
+  _branchOf(id) {
+    for (const [name, nodes] of Object.entries(UPGRADE_TREE)) {
+      if (nodes.some((n) => n.id === id)) return name;
+    }
+    return 'unknown';
+  }
+
   isPurchased(id) {
     return this.purchased.has(id);
   }
@@ -53,6 +61,7 @@ export default class UpgradeSystem {
     const node = this.node(id);
     this.purchased.add(id);
     this._applyToLiving(node.effect);
+    EventBus.emit('upgrade:purchased', { id, name: node.name, branch: this._branchOf(id) });
     EventBus.emit('upgrade:bought', { id, name: node.name });
     return node;
   }

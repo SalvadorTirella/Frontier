@@ -46,7 +46,7 @@ const QualityManager = {
     StateManager.set('settings.gore', level);
     SaveManager.saveSettings();
     EventBus.emit('settings:changed', StateManager.get('settings'));
-  }
+  },
 
   applyScaling(level) {
     StateManager.set('settings.hardwareScaling', level);
