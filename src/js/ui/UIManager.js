@@ -335,6 +335,14 @@ const UIManager = {
     window.addEventListener('resize', onResize);
     this.disposers.push(() => window.removeEventListener('resize', onResize));
 
+    const onFs = () => { this._fit(); if (this.scene.engine) this.scene.resize(); };
+    document.addEventListener('fullscreenchange', onFs);
+    document.addEventListener('webkitfullscreenchange', onFs);
+    this.disposers.push(() => {
+      document.removeEventListener('fullscreenchange', onFs);
+      document.removeEventListener('webkitfullscreenchange', onFs);
+    });
+
     const unlock = () => {
       AudioFX.unlock();
       if (!AudioFX.musicMode) {
@@ -385,10 +393,21 @@ const UIManager = {
   },
 
   toggleFullscreen() {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen && document.documentElement.requestFullscreen().catch(() => {});
+    const doc = document;
+    const active = doc.fullscreenElement || doc.webkitFullscreenElement || doc.mozFullScreenElement;
+    if (!active) {
+      const target = doc.getElementById('viewport') || doc.documentElement;
+      const req = target.requestFullscreen || target.webkitRequestFullscreen || target.mozRequestFullScreen;
+      if (!req) { modalManager.toast('FULLSCREEN NOT SUPPORTED HERE', 'warn'); return; }
+      try {
+        const p = req.call(target);
+        if (p && p.catch) p.catch(() => modalManager.toast('FULLSCREEN BLOCKED BY BROWSER', 'warn'));
+      } catch (e) {
+        modalManager.toast('FULLSCREEN BLOCKED BY BROWSER', 'warn');
+      }
     } else {
-      document.exitFullscreen && document.exitFullscreen();
+      const exit = doc.exitFullscreen || doc.webkitExitFullscreen || doc.mozCancelFullScreen;
+      if (exit) exit.call(doc);
     }
   },
 

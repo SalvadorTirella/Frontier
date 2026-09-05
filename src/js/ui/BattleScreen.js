@@ -10,7 +10,7 @@ import { BABYLON } from '../render/SceneController.js';
 const { Vector3 } = BABYLON || {};
 import { rand, clamp, weightedPick, pad2 } from '../utils/DOMUtils.js';
 import {
-  UNIT_TYPES, ABILITY, ECONOMY, BASES, BATTLE, waveDef
+  UNIT_TYPES, ABILITY, ECONOMY, BASES, BATTLE, waveDef, BASE_W, BASE_H
 } from '../core/Config.js';
 
 export default class BattleScreen {
@@ -335,7 +335,7 @@ export default class BattleScreen {
     if (this.floatBudget > 0) {
       this.floatBudget--;
       const p = this.ctx.scene.project(new Vector3(t.x, 2.3 * t.size, t.z));
-      if (p.x > 20 && p.x < 1260 && p.y > 20 && p.y < 700) {
+      if (p.x > 20 && p.x < BASE_W - 20 && p.y > 20 && p.y < BASE_H - 20) {
         this.hud.float(p.x + rand(-14, 14), p.y, Math.round(dmg), dmg > 45 ? 'dmg-crit' : '');
       }
     }
@@ -365,7 +365,7 @@ export default class BattleScreen {
       this.hud.setCombo(this.combo, 1);
       if (this.combo >= 2 && this.combo % 2 === 0) AudioFX.sfx('combo');
       const p = scene.project(new Vector3(t.x, 2.6, t.z));
-      if (p.x > 20 && p.x < 1260) this.hud.float(p.x, p.y - 18, `+${reward}`, 'dmg-gain');
+      if (p.x > 20 && p.x < BASE_W - 20) this.hud.float(p.x, p.y - 18, `+${reward}`, 'dmg-gain');
       this.hud.gainFlash();
     } else {
       this.losses += 1;

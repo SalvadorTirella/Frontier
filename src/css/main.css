@@ -24,8 +24,8 @@
   --font-body: 'Rajdhani', 'Segoe UI', sans-serif;
   --font-mono: 'Share Tech Mono', 'Courier New', monospace;
 
-  --hud-top: 80px;
-  --hud-bottom: 120px;
+  --hud-top: 96px;
+  --hud-bottom: 200px;
   --ch: 14px;
   --ch-sm: 9px;
   --ease: cubic-bezier(0.22, 0.9, 0.28, 1);
