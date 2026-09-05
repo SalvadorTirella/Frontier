@@ -1,0 +1,1620 @@
+# GAME DESIGN & VISUAL DIRECTION BRIEF
+
+## PROJECT OVERVIEW
+
+We are creating a **premium 3D tactical arcade army battle game for mobile and desktop**, built with Babylon.js.
+
+The game combines:
+
+* army building
+* tactical lane management
+* autonomous combat
+* real-time battles
+* wave survival
+* strategic positioning
+* unit specialization
+* weapon progression
+* heroes
+* defensive structures
+* airstrikes and special attacks
+* terrain advantages
+* cover
+* bosses
+* base destruction
+* territory conquest
+* account progression
+
+The game should feel like a **commercial premium mobile game**, not like a browser prototype.
+
+The player should be able to watch a gameplay video and think:
+
+> "This looks like a professionally produced 3D game."
+
+They should NOT think:
+
+> "This is a Babylon.js / HTML game."
+
+Babylon.js is the underlying technology, but the technology itself should never define the visual identity.
+
+---
+
+# 1. CORE FANTASY
+
+The central fantasy is:
+
+## "BUILD AN ARMY, COMMAND THE BATTLEFIELD, AND WATCH IT GROW INTO AN OVERWHELMING WAR MACHINE."
+
+The player starts with a very small force.
+
+Example:
+
+```text
+3 SOLDIERS
+1 BASIC RIFLE
+$100
+```
+
+During a battle, the player progressively builds an army:
+
+```text
+3 soldiers
+↓
+8 soldiers
+↓
+15 soldiers
+↓
+30 soldiers
+↓
+specialized units
+↓
+heroes
+↓
+heavy weapons
+↓
+tanks
+↓
+defensive structures
+↓
+airstrikes
+↓
+massive army
+↓
+BOSS
+```
+
+The game should create a strong sense of **escalation**.
+
+The battlefield should visually evolve from:
+
+> "small military squad"
+
+into:
+
+> "large-scale military force."
+
+---
+
+# 2. THE PLAYER'S ROLE
+
+The player does NOT directly control individual soldiers.
+
+The soldiers fight autonomously.
+
+The player acts as the battlefield commander.
+
+The player decides:
+
+* which units to buy
+* which lane receives them
+* when to reinforce
+* when to move units
+* which weapon upgrades to select
+* which heroes to deploy
+* where to place defensive structures
+* where to use special attacks
+* which enemies to prioritize
+* how to distribute the army
+* how to react to losses
+* how to manage the battle economy
+
+The player is therefore simultaneously:
+
+### COMMANDER
+
+and
+
+### ARMY BUILDER
+
+and
+
+### STRATEGIST.
+
+---
+
+# 3. BATTLEFIELD
+
+The initial battlefield contains:
+
+## THREE VERTICAL LANES
+
+Viewed from an isometric camera.
+
+Conceptually:
+
+```text
+             ENEMY SIDE
+
+        👾          👾
+        ↓           ↓
+
+    ║ LANE 1 ║ LANE 2 ║ LANE 3 ║
+
+    ║         ║        ║        ║
+    ║         ║        ║        ║
+    ║         ║        ║        ║
+    ║         ║        ║        ║
+
+    🪖🪖      🔫🔫     🛡️
+
+             PLAYER
+```
+
+However, THREE LANES are only the initial configuration.
+
+The visual/world design must eventually support:
+
+* 1 lane
+* 2 lanes
+* 3 lanes
+* 4 lanes
+* 5+ lanes
+* branching lanes
+* merging lanes
+* different battlefield topologies
+* different maps
+* different environments
+
+Do NOT visually design the game around the assumption that every map permanently has three identical lanes.
+
+---
+
+# 4. CAMERA
+
+The primary gameplay camera is:
+
+## ISOMETRIC
+
+The camera should provide:
+
+* strong battlefield readability
+* cinematic perspective
+* clear unit silhouettes
+* readable formations
+* readable lanes
+* visible projectiles
+* visible explosions
+* visible structures
+* clear enemy approach
+
+The camera should feel closer to a premium mobile strategy/action game than a traditional RTS.
+
+It must make the battlefield look dramatic while preserving gameplay readability.
+
+---
+
+# 5. BATTLE STRUCTURE
+
+Battles are organized into waves and breaks.
+
+Example:
+
+```text
+WAVE 1
+↓
+BREAK
+↓
+WAVE 2
+↓
+BREAK
+↓
+WAVE 3
+↓
+BOSS
+```
+
+Different missions may use different structures.
+
+Examples:
+
+### STANDARD
+
+```text
+WAVE
+WAVE
+WAVE
+BOSS
+```
+
+### SURVIVAL
+
+```text
+WAVE
+WAVE
+WAVE
+WAVE
+WAVE
+...
+INFINITE
+```
+
+### OBJECTIVE
+
+```text
+WAVE
+OBJECTIVE
+WAVE
+OBJECTIVE
+BOSS
+```
+
+The visual language must communicate the difference between:
+
+* active combat
+* break
+* boss
+* victory
+* defeat
+
+without requiring excessive UI.
+
+---
+
+# 6. THE ARMY
+
+The army is composed of physical 3D units.
+
+Initial player units include:
+
+* Soldier / Infantry
+* Rifleman
+* Heavy
+* RPG
+* Flamethrower
+* Sniper
+* Grenadier
+* Tank
+
+Future units can include many additional classes.
+
+The army should not look like identical clones.
+
+Use a modular visual system:
+
+```text
+BASE SOLDIER
++
+UNIFORM
++
+ARMOR
++
+HELMET
++
+WEAPON
++
+ACCESSORIES
++
+FACTION
++
+LEVEL / VARIANT
+```
+
+This allows a large army to feel varied without requiring completely unique character models for every soldier.
+
+---
+
+# 7. UNIT VISUAL IDENTITY
+
+Each class must be visually identifiable at a glance.
+
+For example:
+
+## INFANTRY
+
+Visual characteristics:
+
+* standard military uniform
+* assault rifle
+* medium armor
+* balanced silhouette
+
+## RIFLEMAN
+
+* recognizable rifle
+* medium combat equipment
+* standard silhouette
+
+## HEAVY
+
+* significantly larger silhouette
+* heavy armor
+* large weapon
+* slower movement
+
+## SNIPER
+
+* sniper rifle
+* long silhouette
+* prone/crouched firing behavior
+* tactical gear
+* visually identifiable scope
+
+## RPG
+
+* launcher clearly visible
+* ammunition/backpack
+* explosive combat role
+
+## FLAMETHROWER
+
+* fuel tank
+* hose
+* flamethrower weapon
+* fire effects
+
+## GRENADIER
+
+* grenade equipment
+* tactical vest
+* grenade launcher or appropriate weapon
+
+## TANK
+
+* large military vehicle
+* heavy armor
+* cannon
+* tracks
+* smoke
+* muzzle blast
+* destruction effects
+
+The exact visual design should be professional and coherent.
+
+---
+
+# 8. HEROES
+
+Heroes are special units.
+
+They are NOT manually controlled.
+
+They fight autonomously.
+
+Each hero has a unique battlefield role.
+
+Examples:
+
+## MEDIC HERO
+
+Provides healing.
+
+Visual identity:
+
+* medical equipment
+* recognizable medical markings
+* support-oriented silhouette
+
+Gameplay fantasy:
+
+> "Keep my army alive."
+
+---
+
+## ASSAULT HERO
+
+Extremely powerful personal damage.
+
+Visual identity:
+
+* elite military equipment
+* stronger armor
+* visually dominant silhouette
+* powerful weapon
+
+Gameplay fantasy:
+
+> "This unit can turn a losing lane around."
+
+---
+
+## SUPPORT HERO
+
+Provides an aura/buff.
+
+Example:
+
+```text
++20% FIRE RATE
+TO NEARBY FRIENDLY UNITS
+```
+
+The visual language should communicate that the hero is affecting nearby soldiers.
+
+---
+
+# 9. ENEMY FACTION
+
+Initial enemy faction:
+
+# ALIENS
+
+The first major conflict is:
+
+```text
+MODERN HUMAN MILITARY
+VS
+ALIEN ARMY
+```
+
+The aliens should NOT simply look like recolored humans.
+
+They require their own:
+
+* anatomy
+* armor
+* weapons
+* animation language
+* silhouettes
+* materials
+* VFX
+* projectiles
+* sounds
+* vehicles
+* structures
+* bosses
+
+The enemy faction should feel like a genuine opposing military civilization.
+
+---
+
+# 10. FUTURE FACTIONS
+
+The visual architecture must allow future factions such as:
+
+* zombies
+* robots
+* monsters
+* futuristic armies
+* fantasy/magic factions
+* other alien civilizations
+
+However, do not visually mix these into the initial world.
+
+The first visual identity must remain:
+
+## MODERN MILITARY VS ALIENS.
+
+---
+
+# 11. COMBAT
+
+Combat is autonomous.
+
+Soldiers:
+
+* detect enemies
+* choose targets
+* aim
+* fire
+* reload
+* react to hits
+* move
+* die
+* reposition
+* change lanes when capable
+
+Combat should feel highly active.
+
+The battlefield should constantly communicate:
+
+* bullets
+* tracers
+* muzzle flashes
+* impacts
+* explosions
+* smoke
+* dust
+* debris
+* blood where enabled
+* enemy reactions
+* damage numbers
+* deaths
+* movement
+
+The player should always feel that something is happening.
+
+---
+
+# 12. PROJECTILES
+
+Small-arms projectiles should look:
+
+* fast
+* small
+* believable
+* cinematic
+
+Use subtle tracers where appropriate.
+
+Heavy projectiles should be much more visually pronounced.
+
+Examples:
+
+### RIFLE
+
+Small fast tracer.
+
+### SNIPER
+
+Fast, precise, powerful projectile.
+
+### RPG
+
+Visible rocket with smoke trail.
+
+### GRENADE
+
+Physical arc.
+
+### MISSILE
+
+Large projectile with propulsion effects.
+
+### AIRSTRIKE
+
+Aircraft/missile/ordinance sequence with large explosion.
+
+The visual language must immediately communicate weapon power.
+
+---
+
+# 13. DAMAGE AND DEATH
+
+Damage feedback is highly important.
+
+A hit can produce:
+
+```text
+IMPACT
++
+STAGGER
++
+DAMAGE NUMBER
++
+SOUND
++
+VFX
++
+REACTION
+```
+
+Death:
+
+```text
+HIT
+↓
+REACTION
+↓
+STAGGER
+↓
+DEATH ANIMATION
+↓
+BODY FALLS
+↓
+FORMATION REORGANIZES
+```
+
+The death of a soldier should matter visually.
+
+The player should be able to see that their army is suffering losses.
+
+---
+
+# 14. BLOOD
+
+Blood intensity is configurable:
+
+```text
+NONE
+NORMAL
+EXTREME
+```
+
+### NONE
+
+No blood.
+
+### NORMAL
+
+Moderate combat feedback.
+
+### EXTREME
+
+Highly spectacular blood effects.
+
+The art direction must support all three without changing the underlying animation system.
+
+---
+
+# 15. FORMATIONS
+
+Units physically occupy formation positions.
+
+They are NOT floating counters.
+
+Example:
+
+```text
+       SNIPER
+          ↓
+
+   🔫 🔫 🔫 🔫
+    🛡️ 🛡️ 🛡️
+   🔫 🔫 🔫 🔫
+```
+
+Different classes can occupy different tactical positions.
+
+Possible conceptual arrangement:
+
+```text
+FRONT
+Heavy
+Infantry
+
+MIDDLE
+Rifleman
+Grenadier
+Flamethrower
+
+BACK
+Sniper
+RPG
+```
+
+The visual result should resemble an actual small military force.
+
+When units die or are removed:
+
+```text
+formation reorganizes
+```
+
+This should happen smoothly.
+
+---
+
+# 16. LANE TRANSITIONS
+
+Some units can physically move between lanes.
+
+This must be visually clear.
+
+### Infantry
+
+Walks toward another lane.
+
+### Sniper
+
+Leaves position, stands, moves, crosses, establishes firing position again.
+
+### Rifleman
+
+Normally cannot cross unless the map has a valid bifurcation.
+
+### Heavy
+
+Requires a valid physical connection.
+
+### Hero
+
+Can perform a visually spectacular jump.
+
+Lane movement should feel like a real battlefield maneuver.
+
+---
+
+# 17. TERRAIN
+
+Maps must have gameplay-relevant terrain.
+
+Initial environments:
+
+## DESERT
+
+Visual identity:
+
+* sand
+* dust
+* military fortifications
+* dry atmosphere
+* strong sunlight
+
+Gameplay possibilities:
+
+* movement modifiers
+* visibility modifiers
+
+---
+
+## FOREST
+
+Visual identity:
+
+* trees
+* vegetation
+* dirt
+* foliage
+* natural cover
+
+Gameplay:
+
+* cover
+* reduced visibility
+* ambush opportunities
+
+---
+
+## SNOW
+
+Visual identity:
+
+* snow
+* cold atmosphere
+* ice
+* military winter equipment
+
+Gameplay:
+
+* reduced movement speed
+
+---
+
+## CITY
+
+Visual identity:
+
+* buildings
+* streets
+* vehicles
+* urban debris
+* barricades
+* windows
+* rooftops
+
+Gameplay:
+
+* line of sight
+* cover
+* urban positioning
+
+---
+
+## SWAMP
+
+Visual identity:
+
+* mud
+* water
+* vegetation
+* fog
+* wetlands
+
+Gameplay:
+
+* movement/pathing effects
+
+Maps must NOT simply be the same battlefield with a different texture.
+
+---
+
+# 18. COVER
+
+Cover is a real battlefield element.
+
+Examples:
+
+* walls
+* sandbags
+* bunkers
+* barricades
+* buildings
+* defensive structures
+
+A unit behind cover can receive:
+
+* reduced damage
+* altered accuracy
+* altered visibility
+
+Cover can be destructible.
+
+The environment should therefore communicate tactical opportunities visually.
+
+---
+
+# 19. DEFENSIVE STRUCTURES
+
+The player can purchase and place:
+
+* barricades
+* turrets
+* mines
+* walls
+* sandbags
+* bunkers
+
+Placement should be visually intuitive.
+
+The player should see:
+
+```text
+BUY
+↓
+DRAG
+↓
+PLACEMENT PREVIEW
+↓
+CONFIRM
+↓
+STRUCTURE APPEARS
+```
+
+Structures must feel like part of the military environment, not UI objects pasted onto the map.
+
+---
+
+# 20. SPECIAL ATTACKS
+
+The player can buy special attacks.
+
+Examples:
+
+## AIRSTRIKE
+
+The player selects an area.
+
+Visual sequence:
+
+```text
+TARGET
+↓
+TARGET MARKER
+↓
+WARNING
+↓
+AIRCRAFT / ORDINANCE
+↓
+IMPACT
+↓
+EXPLOSION
+↓
+SMOKE
+↓
+DEBRIS
+```
+
+---
+
+## MISSILE
+
+```text
+TARGET
+↓
+MISSILE
+↓
+TRAIL
+↓
+IMPACT
+↓
+EXPLOSION
+```
+
+Different abilities must have distinct visual identities.
+
+---
+
+# 21. BOSS
+
+The boss is one of the major spectacle moments.
+
+The boss occupies one lane.
+
+Boss entrance:
+
+```text
+NORMAL COMBAT
+↓
+WARNING
+↓
+CAMERA ZOOM
+↓
+SLOW MOTION
+↓
+BOSS ENTRANCE
+↓
+VFX
+↓
+CAMERA SHAKE
+↓
+BOSS COMBAT
+```
+
+The boss should feel dramatically larger/more important than normal enemies.
+
+Boss visual design should include:
+
+* unique silhouette
+* unique materials
+* unique animations
+* unique weapons
+* unique attacks
+* unique VFX
+* unique audio
+* unique entrance
+
+---
+
+# 22. BASES
+
+Enemy bases can exist at the end of lanes.
+
+A base has health.
+
+When the player destroys the required bases:
+
+```text
+BASE DESTROYED
+↓
+TERRITORY CONQUERED
+```
+
+Bases should be visually substantial.
+
+Examples:
+
+* alien fortress
+* alien command center
+* energy reactor
+* military compound
+* alien gateway
+
+Future maps may make base destruction and territory conquest a major gameplay pillar.
+
+---
+
+# 23. DESTRUCTION
+
+Structures should have staged damage.
+
+Conceptually:
+
+```text
+100%
+↓
+75%
+↓
+50%
+↓
+25%
+↓
+DESTROYED
+```
+
+Visual changes can include:
+
+* damaged materials
+* broken parts
+* smoke
+* sparks
+* fire
+* debris
+* collapsed sections
+
+Avoid excessive physics complexity everywhere.
+
+The destruction should look impressive while remaining performant.
+
+---
+
+# 24. ECONOMY VISUALIZATION
+
+The battle uses a global army economy.
+
+Money is generated through:
+
+* kills
+* time
+* objectives
+* combos
+* headshots
+* completing lanes
+* no-loss bonuses
+* bosses
+
+The UI should make money feel like a real gameplay resource.
+
+Purchases should produce satisfying visual feedback.
+
+Example:
+
+```text
+$100
+↓
+BUY SOLDIER
+↓
+$75
+↓
+UNIT SPAWNS
+↓
+UNIT ENTERS RESERVE
+↓
+UNIT DEPLOYS
+```
+
+---
+
+# 25. COMBOS
+
+The game has spectacular kill combos.
+
+Examples:
+
+```text
+KILL x5
+KILL x10
+KILL x25
+RAMPAGE
+```
+
+The presentation should escalate.
+
+The battlefield should visually communicate that the player is on a killing streak.
+
+---
+
+# 26. DAMAGE NUMBERS
+
+Damage numbers can appear during combat.
+
+Examples:
+
+```text
+-125
+-340
+CRITICAL!
+-1,250
+```
+
+They should be:
+
+* readable
+* fast
+* satisfying
+* appropriately animated
+* not visually overwhelming
+
+Critical hits should have stronger presentation.
+
+---
+
+# 27. GAME FEEL
+
+The game is deliberately:
+
+## EXTREMELY ARCADE-LIKE.
+
+Even though the visual style is cinematic and military, the moment-to-moment feedback should be spectacular.
+
+The player should constantly receive satisfying feedback from:
+
+* shooting
+* killing
+* headshots
+* combos
+* buying units
+* deploying units
+* upgrading weapons
+* destroying structures
+* using special attacks
+* defeating bosses
+
+The visual philosophy is:
+
+> **Cinematic realism + arcade satisfaction.**
+
+---
+
+# 28. UI / HUD
+
+The UI should be premium mobile-game quality.
+
+It must communicate:
+
+* money
+* gems
+* wave
+* mission
+* army status
+* lane status
+* combo
+* available units
+* upgrades
+* heroes
+* defensive items
+* special attacks
+
+The interface must work in:
+
+## PORTRAIT / VERTICAL ORIENTATION
+
+It should be designed specifically for mobile rather than being a desktop interface squeezed into a phone.
+
+Desktop should also be supported.
+
+---
+
+# 29. MAIN MENU
+
+The visual direction of the menu should match the game.
+
+Possible atmosphere:
+
+```text
+MILITARY COMMAND CENTER
+```
+
+The player should feel like they are entering a military operation.
+
+Potential visual elements:
+
+* soldier/hero showcase
+* military base
+* map
+* vehicles
+* animated background
+* subtle environmental movement
+* rank
+* progression
+* mission selection
+* army overview
+
+Avoid generic web-app UI.
+
+The menu should look like a real game.
+
+---
+
+# 30. PLAYER PROGRESSION
+
+Outside battle the player has:
+
+### XP
+
+Used for:
+
+* level progression
+* map unlocks
+* unit unlocks
+
+### MILITARY RANK
+
+Examples:
+
+```text
+PRIVATE
+CORPORAL
+SERGEANT
+LIEUTENANT
+CAPTAIN
+MAJOR
+COLONEL
+GENERAL
+```
+
+Rank is primarily:
+
+* prestige
+* progression
+* unlocks
+
+It should not simply be a permanent combat multiplier.
+
+---
+
+# 31. LONG-TERM VISION
+
+The game should eventually be expandable into:
+
+```text
+MORE MAPS
+MORE UNITS
+MORE WEAPONS
+MORE HEROES
+MORE FACTIONS
+MORE BOSSES
+MORE STRUCTURES
+MORE TERRITORIES
+TERRITORY CONQUEST
+PVP
+CO-OP
+COSMETICS
+```
+
+A future world map could allow players to conquer territories through battles.
+
+For now, this is a long-term direction rather than a requirement for the first playable version.
+
+---
+
+# 32. MULTIPLAYER
+
+Future multiplayer will support:
+
+## PLAYER VS PLAYER
+
+Two human players on different devices.
+
+This is NOT part of the initial implementation.
+
+However, all visual concepts should avoid assumptions that would make a second player impossible later.
+
+---
+
+# 33. MONETIZATION PHILOSOPHY
+
+Monetization is NOT being implemented now.
+
+Potential future monetization could include:
+
+* skins
+* cosmetic units
+* alternate factions
+* weapons
+* heroes
+* new content
+
+However:
+
+## PAYING SHOULD NEVER BE REQUIRED TO EXPERIENCE THE COMPLETE GAME.
+
+The core experience must be playable without payment.
+
+Do not design the visual identity around monetization.
+
+---
+
+# 34. TARGET EXPERIENCE
+
+The game combines five major experiences:
+
+### 1. ARMY BUILDING
+
+"I'm building a massive army."
+
+### 2. STRATEGY
+
+"I'm deciding where my army should fight."
+
+### 3. SPECTACLE
+
+"I'm watching an incredible battle."
+
+### 4. PROGRESSION
+
+"My military force is evolving."
+
+### 5. SURVIVAL
+
+"I need to keep my army alive."
+
+None of these should completely dominate the others.
+
+The game should constantly move between them.
+
+---
+
+# 35. VISUAL ESCALATION
+
+A major design principle is:
+
+## SMALL → LARGE → EPIC
+
+Beginning:
+
+```text
+3 soldiers
+```
+
+Middle:
+
+```text
+multiple formations
+specialized units
+heroes
+defenses
+```
+
+Late:
+
+```text
+large army
+tanks
+airstrikes
+massive enemy force
+boss
+explosions
+RAMPAGE
+```
+
+The environment and UI should support this escalation.
+
+---
+
+# 36. VISUAL QUALITY BAR
+
+Every visual asset should be evaluated according to:
+
+### SILHOUETTE
+
+Can the player identify it quickly?
+
+### MATERIAL
+
+Does it look physically believable?
+
+### ANIMATION
+
+Does it move naturally?
+
+### SCALE
+
+Does it have convincing physical proportions?
+
+### LIGHTING
+
+Does it integrate into the environment?
+
+### VFX
+
+Does it communicate gameplay?
+
+### PERFORMANCE
+
+Can it exist alongside hundreds of entities?
+
+### CONSISTENCY
+
+Does it belong to the same game?
+
+---
+
+# 37. WHAT WE NEED TO DESIGN IN THE NEXT STAGE
+
+The next stage should NOT focus on programming the gameplay systems.
+
+Instead, it should develop the game's complete visual identity.
+
+We need detailed design specifications for:
+
+## ENVIRONMENTS
+
+* desert battlefield
+* forest battlefield
+* snow battlefield
+* city battlefield
+* swamp battlefield
+* alien environments
+* military bases
+* alien bases
+* battlefield props
+* cover
+* destruction
+
+## CHARACTERS
+
+* infantry
+* rifleman
+* heavy
+* sniper
+* RPG
+* grenadier
+* flamethrower
+* heroes
+* alien equivalents
+* bosses
+
+## VEHICLES
+
+* tanks
+* helicopters
+* aircraft
+* alien vehicles
+* future vehicles
+
+## WEAPONS
+
+* rifles
+* sniper rifles
+* RPG
+* grenade systems
+* flamethrower
+* tank weapons
+* alien weapons
+
+## UI
+
+* main menu
+* loading screen
+* HUD
+* unit selection
+* upgrade screen
+* hero screen
+* mission screen
+* results screen
+* progression screen
+* settings
+* pause screen
+
+## VFX
+
+* bullets
+* tracers
+* muzzle flashes
+* impacts
+* explosions
+* smoke
+* fire
+* blood
+* alien effects
+* boss effects
+* destruction
+* environmental effects
+
+## ANIMATION
+
+* movement
+* aiming
+* firing
+* reload
+* hit reaction
+* death
+* lane transition
+* deployment
+* recovery
+* hero abilities
+* boss animations
+
+## AUDIO
+
+* weapons
+* impacts
+* footsteps
+* explosions
+* UI
+* combat ambience
+* alien sounds
+* boss sounds
+* music
+* victory
+* defeat
+
+---
+
+# 38. IMPORTANT CREATIVE PRINCIPLE
+
+Do not design isolated assets.
+
+Everything must belong to a coherent:
+
+# VISUAL BIBLE
+
+For example, if designing a soldier, consider:
+
+* what environment he belongs in
+* what lighting affects him
+* what materials his uniform uses
+* what weapon he carries
+* what animations he needs
+* how he looks next to a Heavy
+* how he looks next to a Tank
+* how he looks next to an Alien
+* how he looks in a formation of 50 soldiers
+* how he looks on a phone screen
+* how he looks during explosions
+* how he looks during boss combat
+
+Likewise, when designing an environment, consider:
+
+* unit scale
+* lane readability
+* cover
+* camera
+* lighting
+* VFX
+* destruction
+* gameplay
+* performance
+
+Everything must be designed as part of one game.
+
+---
+
+# 39. FINAL CREATIVE DIRECTION
+
+The overall identity can be summarized as:
+
+# MODERN MILITARY CINEMATIC
+
+## +
+
+# ARCADE COMBAT
+
+## +
+
+# TACTICAL LANE STRATEGY
+
+## +
+
+# ARMY GROWTH
+
+## +
+
+# SPECTACULAR 3D GAME FEEL
+
+The game should feel:
+
+* powerful
+* tactical
+* cinematic
+* satisfying
+* responsive
+* readable
+* spectacular
+* premium
+* scalable
+* addictive
+
+The player should always feel that their army is becoming larger, stronger, more specialized and more visually impressive.
+
+---
+
+# 40. INSTRUCTIONS FOR THIS NEW CONVERSATION
+
+Use this document as the **canonical creative direction** for the project.
+
+Do not contradict these principles.
+
+When creating future prompts, divide the work into specialized production areas such as:
+
+1. VISUAL BIBLE
+2. ENVIRONMENT DESIGN
+3. CHARACTER DESIGN
+4. UNIT MODEL SPECIFICATIONS
+5. WEAPON DESIGN
+6. VEHICLE DESIGN
+7. BOSS DESIGN
+8. VFX DESIGN
+9. ANIMATION DESIGN
+10. UI/UX DESIGN
+11. MAIN MENU
+12. HUD
+13. MAP / WORLD DESIGN
+14. AUDIO DIRECTION
+15. ASSET PRODUCTION PIPELINE
+16. QUALITY CONTROL
+
+Every generated prompt should be sufficiently detailed that another AI, artist or 3D asset generator can use it to create production-ready assets consistent with the same game.
+
+Do not make the game look like a generic military asset pack.
+
+Create a distinctive, coherent visual identity.
