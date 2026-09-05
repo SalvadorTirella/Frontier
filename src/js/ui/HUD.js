@@ -5,7 +5,10 @@ import EventBus from '../core/EventBus.js';
 import { make, on, setTxt, pad2 } from '../utils/DOMUtils.js';
 import { animateNumber, retrigger, spawnFloat } from '../utils/AnimationUtils.js';
 import AudioFX from '../utils/AudioUtils.js';
-import { UNIT_TYPES, ABILITY, ECONOMY, LANE_KEYS } from '../core/Config.js';
+import {
+  UNIT_TYPES, ABILITY, ECONOMY, LANE_KEYS,
+  HERO_TYPES, STRUCTURE_TYPES, UPGRADE_TREE
+} from '../core/Config.js';
 
 const ICONS = {
   rifleman: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2.6c-3.1 0-5.2 2.3-5.2 5.4v2.2h10.4V8c0-3.1-2.1-5.4-5.2-5.4z"/><path d="M6.8 10.2h10.4" stroke-linecap="round"/><path d="M3.6 21.4c.5-4.3 4-6.6 8.4-6.6s7.9 2.3 8.4 6.6z"/></svg>`,
@@ -14,7 +17,15 @@ const ICONS = {
   artillery: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M9.5 14.5 17 4.8l2.2 1.7-7.2 9.4z"/><path d="M5 20.5h14" stroke-linecap="round"/><path d="M7.5 17.5h6" stroke-linecap="round"/><circle cx="18.6" cy="3.4" r="1.1" fill="currentColor" stroke="none"/></svg>`,
   airstrike: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2.5 15 15l-3-2.2L9 15z"/><path d="M12 12.8v8.7" stroke-linecap="round"/><path d="M4 8.5h4M3 12h3M4.5 15.5h2.7" stroke-linecap="round" opacity=".7"/></svg>`,
   pause: `<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4.5" width="4" height="15" rx="1"/><rect x="14" y="4.5" width="4" height="15" rx="1"/></svg>`,
-  credits: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2.8 20 7v10l-8 4.2L4 17V7z"/><path d="M12 7.5v9M8.5 9.5l7 5M15.5 9.5l-7 5" opacity=".8"/></svg>`
+  credits: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2.8 20 7v10l-8 4.2L4 17V7z"/><path d="M12 7.5v9M8.5 9.5l7 5M15.5 9.5l-7 5" opacity=".8"/></svg>`,
+  medic: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>`,
+  assault: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2.5 14 9l6.5 1-5 4.4 1.6 6.6L12 17.4 6.9 21l1.6-6.6-5-4.4L10 9z"/></svg>`,
+  support: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 21V4"/><path d="M5 4h13l-2.6 3.5L18 11H5"/></svg>`,
+  sandbag: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3.5" y="13" width="8" height="5" rx="1.4"/><rect x="12.5" y="13" width="8" height="5" rx="1.4"/><rect x="8" y="7.5" width="8" height="5" rx="1.4"/></svg>`,
+  barricade: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 20V8l8-4 8 4v12"/><path d="M4 20h16M8 20v-7h8v7"/></svg>`,
+  turret: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3v6"/><circle cx="12" cy="12" r="3.4"/><path d="M5 21c.8-3.4 3.6-5.4 7-5.4s6.2 2 7 5.4z"/></svg>`,
+  mine: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="13" r="5.5"/><path d="M12 4.5v3M5.5 7.5l2 2M18.5 7.5l-2 2" stroke-linecap="round"/><circle cx="12" cy="13" r="1.4" fill="currentColor" stroke="none"/></svg>`,
+  upgrade: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20V5M6 11l6-6 6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>`
 };
 
 export function unitIcon(id, size = 26) {
@@ -27,6 +38,8 @@ export default class HUD {
     this.refs = {};
     this._buildTop();
     this._buildBottom();
+    this._buildRail();
+    this._buildUpgradePanel();
     this._buildOverlays();
     this._bind();
   }
@@ -154,6 +167,136 @@ export default class HUD {
     bottom.appendChild(shop);
 
     this.el.appendChild(bottom);
+  }
+
+  /* ---------------- COMMAND RAIL (heroes · structures · research) ---------------- */
+  _buildRail() {
+    const rail = make('div', 'cmd-rail hud-panel-v');
+    rail.innerHTML = `<span class="rail-title">COMMAND</span>`;
+
+    this.heroBtns = {};
+    HERO_TYPES.forEach((h) => {
+      const btn = make('button', 'rail-btn hero', `
+        <span class="rail-ico">${ICONS[h.id] || ''}</span>
+        <span class="rail-info"><b>${h.name}</b><i class="mono">CR ${h.cost} · [${h.hotkey}]</i></span>
+        <span class="rail-ult"><i></i></span>
+        <span class="rail-cd"></span>`);
+      on(btn, 'click', () => EventBus.emit('hero:deploy', { id: h.id }));
+      on(btn, 'mouseenter', () => AudioFX.sfx('hover'));
+      rail.appendChild(btn);
+      this.heroBtns[h.id] = btn;
+    });
+
+    rail.appendChild(make('div', 'rail-sep'));
+
+    this.structBtns = {};
+    STRUCTURE_TYPES.forEach((s) => {
+      const btn = make('button', 'rail-btn struct', `
+        <span class="rail-ico">${ICONS[s.id] || ''}</span>
+        <span class="rail-info"><b>${s.name}</b><i class="mono">CR ${s.cost} · [${s.hotkey}]</i></span>
+        <span class="rail-tag">${s.isCover ? 'COVER' : s.id === 'turret' ? 'AUTO' : 'BOOM'}</span>`);
+      on(btn, 'click', () => EventBus.emit('structure:select', { id: s.id }));
+      on(btn, 'mouseenter', () => AudioFX.sfx('hover'));
+      rail.appendChild(btn);
+      this.structBtns[s.id] = btn;
+    });
+
+    rail.appendChild(make('div', 'rail-sep'));
+
+    this.upgradeBtn = make('button', 'rail-btn upgrade', `
+      <span class="rail-ico">${ICONS.upgrade}</span>
+      <span class="rail-info"><b>RESEARCH</b><i class="mono">[U] · TREE</i></span>`);
+    on(this.upgradeBtn, 'click', () => EventBus.emit('upgrades:toggle'));
+    on(this.upgradeBtn, 'mouseenter', () => AudioFX.sfx('hover'));
+    rail.appendChild(this.upgradeBtn);
+
+    this.el.appendChild(rail);
+  }
+
+  /* ---------------- UPGRADE PANEL ---------------- */
+  _buildUpgradePanel() {
+    const panel = make('div', 'upgrade-panel hud-panel-v');
+    panel.innerHTML = `
+      <div class="up-head">
+        <span class="up-title display">FIELD RESEARCH</span>
+        <button class="up-close mono" id="up-close">✕ [U]</button>
+      </div>
+      <div class="up-branches" id="up-branches"></div>`;
+    this.upgradePanel = panel;
+    this.el.appendChild(panel);
+    on(panel.querySelector('#up-close'), 'click', () => EventBus.emit('upgrades:toggle'));
+    panel.addEventListener('click', (ev) => {
+      const node = ev.target.closest('[data-up]');
+      if (node && !node.classList.contains('is-bought') && !node.classList.contains('is-locked') && !node.classList.contains('is-poor')) {
+        EventBus.emit('upgrade:buy', { id: node.dataset.up });
+      }
+    });
+  }
+
+  /** @param {boolean} open */
+  setUpgradePanel(open) {
+    this.upgradePanel.classList.toggle('open', open);
+  }
+
+  /**
+   * Rebuilds the research tree.
+   * @param {object[]} nodes [{id, branch, name, desc, cost, purchased, locked, affordable}]
+   */
+  renderUpgrades(nodes) {
+    const wrap = this.upgradePanel.querySelector('#up-branches');
+    if (!wrap) return;
+    const branchNames = { weapons: 'WEAPONS', armor: 'ARMOR', logistics: 'LOGISTICS' };
+    wrap.innerHTML = '';
+    Object.keys(UPGRADE_TREE).forEach((branchId) => {
+      const col = make('div', 'up-branch');
+      col.innerHTML = `<span class="up-branch-label">${branchNames[branchId] || branchId}</span>`;
+      nodes.filter((n) => n.branch === branchId).forEach((n) => {
+        const cls = [
+          'up-node', 'chamfer-sm',
+          n.purchased ? 'is-bought' : '',
+          n.locked ? 'is-locked' : '',
+          !n.purchased && !n.locked && !n.affordable ? 'is-poor' : ''
+        ].join(' ');
+        const node = make('button', cls, `
+          <span class="up-name">${n.name}</span>
+          <span class="up-desc">${n.desc}</span>
+          <span class="up-cost mono">${n.purchased ? 'OWNED' : `CR ${n.cost}`}</span>`);
+        node.dataset.up = n.id;
+        col.appendChild(node);
+      });
+      wrap.appendChild(col);
+    });
+  }
+
+  /**
+   * Updates a hero chip.
+   * @param {string} id hero id
+   * @param {{alive:boolean, cdPct:number, ultPct:number, affordable:boolean}} st
+   */
+  setHero(id, st) {
+    const btn = this.heroBtns[id];
+    if (!btn) return;
+    btn.classList.toggle('is-alive', st.alive);
+    btn.classList.toggle('is-cooldown', !st.alive && st.cdPct > 0);
+    btn.classList.toggle('is-poor', !st.alive && st.cdPct <= 0 && !st.affordable);
+    btn.style.setProperty('--cd', (st.cdPct || 0).toFixed(3));
+    const ult = btn.querySelector('.rail-ult i');
+    if (ult) ult.style.width = `${Math.max(0, Math.min(1, st.ultPct || 0)) * 100}%`;
+  }
+
+  /** @param {string|null} id structure being placed (null clears) */
+  setStructurePlacing(id) {
+    Object.entries(this.structBtns).forEach(([sid, btn]) => {
+      btn.classList.toggle('is-placing', sid === id);
+    });
+  }
+
+  /** @param {{id:string, affordable:boolean}} list */
+  setStructAfford(list) {
+    list.forEach(({ id, affordable }) => {
+      const btn = this.structBtns[id];
+      if (btn) btn.classList.toggle('is-poor', !affordable);
+    });
   }
 
   /* ---------------- BANNERS & FX ---------------- */

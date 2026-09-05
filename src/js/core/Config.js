@@ -141,6 +141,71 @@ export const BOSS_TEMPLATES = {
   }
 };
 
+/* ---------- HEROES / STRUCTURES / UPGRADES (Milestone 4) ---------- */
+
+/** Autonomous hero commanders — one alive at a time, deploy to a lane */
+export const HERO_TYPES = [
+  {
+    id: 'medic', name: 'FIELD MEDIC', role: 'MIDDLE',
+    cost: 260, supply: 4, hp: 430, dmg: 9, range: 10, rate: 1.1, speed: 4.4, size: 1.3,
+    cooldown: 20, maxAlive: 1,
+    auraRadius: 5.5, auraHeal: 16,
+    ultKills: 6, ultName: 'TRIAGE SURGE', ultHeal: 100, ultRadius: 9,
+    accent: 'green', hotkey: 'Z'
+  },
+  {
+    id: 'assault', name: 'VANGUARD', role: 'FRONT',
+    cost: 300, supply: 5, hp: 660, dmg: 48, range: 11, rate: 0.85, speed: 5.6, size: 1.45,
+    cooldown: 24, maxAlive: 1,
+    laneShiftAggro: true,
+    ultKills: 5, ultName: 'OVERDRIVE', ultDmgMult: 2.2, ultDur: 6,
+    accent: 'amber', hotkey: 'X'
+  },
+  {
+    id: 'support', name: 'WARLORD', role: 'BACK',
+    cost: 280, supply: 5, hp: 390, dmg: 22, range: 15, rate: 1.0, speed: 3.9, size: 1.35,
+    cooldown: 22, maxAlive: 1,
+    auraRadius: 6.5, auraBuffDmg: 1.3, auraBuffRate: 1.25,
+    ultKills: 7, ultName: 'RALLY CRY', ultBuffDur: 8,
+    accent: 'cyan', hotkey: 'C'
+  }
+];
+
+/** Placeable defensive structures — sandbag/barricade double as cover */
+export const STRUCTURE_TYPES = [
+  { id: 'sandbag', name: 'SANDBAG WALL', cost: 60, supply: 1, isCover: true, hotkey: '5' },
+  { id: 'barricade', name: 'BARRICADE', cost: 120, supply: 2, isCover: true, hotkey: '6' },
+  {
+    id: 'turret', name: 'AUTO TURRET', cost: 220, supply: 3, isCover: false,
+    hp: 320, dmg: 15, range: 13, rate: 0.5, w: 1.2, d: 1.2, h: 1.7, hotkey: '7'
+  },
+  {
+    id: 'mine', name: 'PROXIMITY MINE', cost: 90, supply: 1, isCover: false,
+    hp: 50, dmg: 150, radius: 3.4, w: 0.9, d: 0.9, h: 0.3, hotkey: '8'
+  }
+];
+
+/** Battle upgrade tree — three branches, applied globally while in combat */
+export const UPGRADE_TREE = {
+  weapons: [
+    { id: 'w1', branch: 'weapons', name: 'HOLLOW POINTS', desc: '+15% unit damage', cost: 150, effect: { dmgMult: 1.15 } },
+    { id: 'w2', branch: 'weapons', name: 'RAPID FIRE', desc: '+20% fire rate', cost: 220, effect: { rateMult: 1.2 }, req: 'w1' },
+    { id: 'w3', branch: 'weapons', name: 'AP ROUNDS', desc: '+25% dmg · +10% crit', cost: 340, effect: { dmgMult: 1.25, critBonus: 0.10 }, req: 'w2' }
+  ],
+  armor: [
+    { id: 'a1', branch: 'armor', name: 'PLATED HULLS', desc: '+20% max HP', cost: 160, effect: { hpMult: 1.2 } },
+    { id: 'a2', branch: 'armor', name: 'REACTIVE ARMOR', desc: '-15% explosive taken', cost: 240, effect: { explosiveResist: 0.85 }, req: 'a1' },
+    { id: 'a3', branch: 'armor', name: 'NANO REPAIR', desc: 'Allies regen 2 HP/s', cost: 360, effect: { regen: 2 }, req: 'a2' }
+  ],
+  logistics: [
+    { id: 'l1', branch: 'logistics', name: 'SUPPLY LINES', desc: '+25% income', cost: 140, effect: { incomeMult: 1.25 } },
+    { id: 'l2', branch: 'logistics', name: 'FIELD DEPOT', desc: '+8 supply cap', cost: 200, effect: { supplyCapAdd: 8 }, req: 'l1' },
+    { id: 'l3', branch: 'logistics', name: 'WAR ECONOMY', desc: '+40% kill rewards', cost: 300, effect: { killRatioMult: 1.4 }, req: 'l2' }
+  ]
+};
+
+export const HERO_BUFF = { rateBase: 1.25, dmgBase: 1.3 };
+
 /* Wave generator */
 export function waveDef(i) {
   return {

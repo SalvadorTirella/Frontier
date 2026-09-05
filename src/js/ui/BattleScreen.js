@@ -12,12 +12,16 @@ import { rand, clamp, weightedPick, pad2 } from '../utils/DOMUtils.js';
 import {
   UNIT_TYPES, ABILITY, ECONOMY, BASES, BATTLE, waveDef, BASE_W, BASE_H,
   ROLE_BY_UNIT, FORMATION, LANE_SWITCH,
-  WEAPONS, RESIST, CRIT_MULT, HEADSHOT
+  WEAPONS, RESIST, CRIT_MULT, HEADSHOT,
+  HERO_TYPES, STRUCTURE_TYPES, UPGRADE_TREE
 } from '../core/Config.js';
 import FormationSystem from '../core/FormationSystem.js';
 import CombatEngine from '../core/CombatEngine.js';
 import CoverSystem from '../core/CoverSystem.js';
 import BossSystem from '../core/BossSystem.js';
+import HeroSystem from '../core/HeroSystem.js';
+import StructureSystem from '../core/StructureSystem.js';
+import UpgradeSystem from '../core/UpgradeSystem.js';
 
 export default class BattleScreen {
   constructor() {
@@ -48,22 +52,47 @@ export default class BattleScreen {
     });
     // boss:defeated → victory flow is handled inside BossSystem._die()
 
+    /* heroes / structures / upgrades (Milestone 4) */
+    EventBus.on('hero:deploy', ({ id }) => this._deployHero(id));
+    EventBus.on('structure:select', ({ id }) => { if (this.structureSys) this.structureSys.select(id); });
+    EventBus.on('structure:placing', ({ id }) => this.hud.setStructurePlacing(id));
+    EventBus.on('upgrades:toggle', () => this._toggleUpgrades());
+    EventBus.on('upgrade:buy', ({ id }) => this._buyUpgrade(id));
+
     const canvas = ctx.scene.canvas;
     if (canvas) {
+      canvas.addEventListener('contextmenu', (ev) => {
+        ev.preventDefault();
+        if (this.structureSys) this.structureSys.cancel();
+      });
       canvas.addEventListener('pointerdown', (ev) => {
         if (!this.running || this.paused || this.ending || !this.lanes) return;
         const p = this.ctx.scene.pickGround(ev.clientX, ev.clientY);
-        if (p && Math.abs(p.x) < BATTLE.spawnX + 5) {
+        if (!p) return;
+        // placement mode takes priority over lane selection
+        if (this.structureSys && this.structureSys.placingId) {
+          this.structureSys.tryPlace(p.x, p.z);
+          return;
+        }
+        if (Math.abs(p.x) < BATTLE.spawnX + 5) {
           this._selectLane(this.lanes.getNearestLane(p.z).id);
         }
       });
       let hoverT = 0;
       canvas.addEventListener('pointermove', (ev) => {
         const now = performance.now();
-        if (now - hoverT < 110) return;
+        if (now - hoverT < 90) return;
         hoverT = now;
         if (!this.running || this.paused || !this.lanes) return;
         const p = this.ctx.scene.pickGround(ev.clientX, ev.clientY);
+        // structure placement preview
+        if (this.structureSys && this.structureSys.placingId) {
+          if (p) {
+            const ok = this.structureSys.validate(p.x, p.z).ok;
+            this.ctx.scene.setPlacementPreview(p.x, p.z, ok);
+          }
+          return;
+        }
         if (p && Math.abs(p.x) < BATTLE.spawnX + 5) {
           const id = this.lanes.getNearestLane(p.z).id;
           this.ctx.scene.setHoverLane(id);
@@ -107,7 +136,7 @@ export default class BattleScreen {
     this.combat = new CombatEngine({
       scene,
       damageEntity: (t, d, i) => this._damageEntity(t, d, i),
-      damageCover: (c, d) => this.cover.damageCover(c, d),
+      damageCover: (c, d) => this._damageCoverRouted(c, d),
       coverAt: (x, z, r) => this.cover.getCoverAt(x, z, r),
       blocksLoS: (ax, az, bx, bz) => this.cover.blocksLoS(ax, az, bx, bz),
       splash: (x, z, r, d, side, i) => this._splash(x, z, r, d, side, i)
@@ -117,6 +146,14 @@ export default class BattleScreen {
     this.cineT = 0;
     this.bossPending = 0;
     this.hud.setBoss(null);
+
+    /* heroes / structures / upgrades (Milestone 4) */
+    this.heroSys = new HeroSystem({ battle: this, scene, formation: this.formation, lanes: this.lanes });
+    this.structureSys = new StructureSystem({ battle: this, scene, combat: this.combat, cover: this.cover, lanes: this.lanes });
+    this.upgradeSys = new UpgradeSystem({ battle: this });
+    this.upgradesOpen = false;
+    this.hud.setUpgradePanel(false);
+    this._refreshUpgradePanel();
 
     this.credits = ECONOMY.start;
     this.supplyUsed = 0;
@@ -147,7 +184,7 @@ export default class BattleScreen {
 
     this.hud.setVisible(true);
     this.hud.setCredits(this.credits, false);
-    this.hud.setSupply(0, ECONOMY.supplyCap);
+    this.hud.setSupply(0, this.supplyCapEff);
     this.hud.setWave(1, BATTLE.finalWave);
     this.hud.setHostiles(0);
     this.hud.setBaseHP('player', 100);
@@ -172,7 +209,13 @@ export default class BattleScreen {
     if (this.combat) this.combat.clear();
     if (this.cover) this.cover.clear();
     if (this.bossSys) this.bossSys.reset();
+    if (this.structureSys) this.structureSys.reset();
+    if (this.heroSys) this.heroSys.reset();
+    if (this.upgradeSys) this.upgradeSys.reset();
     if (this.formation) this.formation.clear();
+    this.upgradesOpen = false;
+    this.hud.setUpgradePanel(false);
+    this.hud.setStructurePlacing(null);
     this.ctx.scene.setSelectedLane(null);
     this.ctx.scene.setHoverLane(null);
     this.hud.setHoverLane(null);
@@ -194,6 +237,12 @@ export default class BattleScreen {
     };
   }
 
+  /** Effective supply cap including logistics upgrades. */
+  get supplyCapEff() {
+    const add = this.upgradeSys ? this.upgradeSys.getMods().supplyCapAdd : 0;
+    return ECONOMY.supplyCap + add;
+  }
+
   /* ================= main tick ================= */
   tick(dt) {
     if (!this.running || this.paused || this.ending) return;
@@ -206,8 +255,9 @@ export default class BattleScreen {
     }
     const sdt = dt * this.timeScale;
 
-    /* economy */
-    const income = ECONOMY.income + Math.max(0, this.waveIdx) * ECONOMY.incomePerWave;
+    /* economy (logistics upgrades boost income) */
+    const mods = this.upgradeSys.getMods();
+    const income = (ECONOMY.income + Math.max(0, this.waveIdx) * ECONOMY.incomePerWave) * mods.incomeMult;
     this.credits += income * sdt;
     this.earned += income * sdt;
 
@@ -234,6 +284,11 @@ export default class BattleScreen {
     this.combat.tick(sdt);
     this.bossSys.tick(sdt);
 
+    /* heroes, structures & nano-repair (Milestone 4) */
+    this.heroSys.tick(sdt);
+    this.structureSys.tick(sdt);
+    if (mods.regen > 0) this._applyRegen(mods.regen * sdt);
+
     /* base fx throttle */
     this.baseFxT = Math.max(0, this.baseFxT - dt);
     this.floatTimer -= dt;
@@ -244,9 +299,21 @@ export default class BattleScreen {
     if (this.uiAcc >= 0.12) {
       this.uiAcc = 0;
       this.hud.setCredits(this.credits, false);
-      this.hud.setSupply(this.supplyUsed, ECONOMY.supplyCap);
+      this.hud.setSupply(this.supplyUsed, this.supplyCapEff);
       this.hud.setHostiles(this.entities.filter((e) => e.side === 'enemy').length);
-      this.hud.updateShop(Math.floor(this.credits), ECONOMY.supplyCap - this.supplyUsed);
+      this.hud.updateShop(Math.floor(this.credits), this.supplyCapEff - this.supplyUsed);
+      this._refreshCommandRail();
+      this.hud.setStructAfford(STRUCTURE_TYPES.map((s) => ({ id: s.id, affordable: this.credits >= s.cost })));
+      if (this.upgradesOpen) this._refreshUpgradePanel();
+    }
+  }
+
+  /** Nano-repair: heal living player units up to max HP. */
+  _applyRegen(amount) {
+    for (const e of this.entities) {
+      if (e.side !== 'player' || e.hp <= 0 || e.isStructure || e.hp >= e.maxHp) continue;
+      e.hp = Math.min(e.maxHp, e.hp + amount);
+      this.ctx.scene.setUnitHP(e.handle, e.hp / e.maxHp);
     }
   }
 
@@ -351,6 +418,8 @@ export default class BattleScreen {
     const role = ROLE_BY_UNIT[def.id] || 'MIDDLE';
     const pos = this.lanes.getSpawnPosition(side, laneId, role);
     const handle = this.ctx.scene.addUnitMesh(def, side, pos.x, pos.z);
+    // player units inherit the current tech state; enemies use wave scaling only
+    const up = side === 'player' ? this.upgradeSys.getMods() : { hpMult: 1, dmgMult: 1, rateMult: 1 };
     const e = {
       id: ++this.eid,
       def,
@@ -358,10 +427,10 @@ export default class BattleScreen {
       role,
       laneId,
       size: def.size,
-      hp: mods.hp ?? def.hp,
-      dmg: mods.dmg ?? def.dmg,
+      hp: (mods.hp ?? def.hp) * up.hpMult,
+      dmg: (mods.dmg ?? def.dmg) * up.dmgMult,
       range: def.range,
-      rate: def.rate,
+      rate: def.rate / up.rateMult,
       speed: def.speed,
       cd: rand(0.1, 0.55),
       x: pos.x,
@@ -370,6 +439,7 @@ export default class BattleScreen {
       laneShifting: false,
       shiftT: 0,
       value: def.cost,
+      supply: def.supply,
       handle
     };
     e.maxHp = e.hp;
@@ -592,6 +662,17 @@ export default class BattleScreen {
       if (c) d *= 1 - c.coverValue * (info.splash ? 0.4 : 1);
     }
 
+    // structures route straight to the StructureSystem (no crits)
+    if (t.isStructure) {
+      this.structureSys.damageStructure(t, d);
+      return;
+    }
+
+    // armor research: reactive plating shrugs off explosives
+    if (t.side === 'player' && kind === 'explosive') {
+      d *= this.upgradeSys.getMods().explosiveResist;
+    }
+
     // crit & headshot
     let cls = '';
     if (info.critChance && Math.random() < info.critChance) {
@@ -661,9 +742,22 @@ export default class BattleScreen {
     // explosive damage chips away at cover pieces in the blast
     if (this.cover) {
       [...this.cover.covers].forEach((c) => {
-        if (Math.hypot(c.x - x, c.z - z) <= r + 1) this.cover.damageCover(c, dmg * 0.8);
+        if (Math.hypot(c.x - x, c.z - z) <= r + 1) this._damageCoverRouted(c, dmg * 0.8);
       });
     }
+    // splash also wrecks non-cover structures (turrets / mines)
+    if (this.structureSys) {
+      [...this.structureSys.structures].forEach((s) => {
+        if (s.def.isCover) return; // already handled through its cover
+        if (Math.hypot(s.x - x, s.z - z) <= r + 1) this.structureSys.damageStructure(s, dmg * 0.8);
+      });
+    }
+  }
+
+  /** Routes cover damage: structure-linked covers go to the StructureSystem. */
+  _damageCoverRouted(c, dmg) {
+    if (c.structureRef) this.structureSys.damageStructure(c.structureRef, dmg);
+    else this.cover.damageCover(c, dmg);
   }
 
   _killEntity(t) {
@@ -682,10 +776,11 @@ export default class BattleScreen {
       this.comboT = BATTLE.comboWindow;
       this.bestCombo = Math.max(this.bestCombo, this.combo);
       const mult = 1 + Math.min(this.combo - 1, 20) * 0.06;
-      const reward = Math.round(t.value * ECONOMY.killRatio * mult);
+      const reward = Math.round(t.value * ECONOMY.killRatio * mult * this.upgradeSys.getMods().killRatioMult);
       this.credits += reward;
       this.earned += reward;
       this.kills += 1;
+      this.heroSys.onPlayerKill(); // feeds deployed hero ultimates
       this.hud.setCombo(this.combo, 1);
       if (this.combo >= 2 && this.combo % 2 === 0) AudioFX.sfx('combo');
       const p = scene.project(new Vector3(t.x, 2.6, t.z));
@@ -693,9 +788,13 @@ export default class BattleScreen {
       this.hud.gainFlash();
     } else {
       this.losses += 1;
-      this.supplyUsed = Math.max(0, this.supplyUsed - t.def.supply);
-      this.deployedCount[t.def.id] = Math.max(0, (this.deployedCount[t.def.id] || 0) - 1);
-      this.hud.setReserve(t.def.id, this.deployedCount[t.def.id]);
+      this.supplyUsed = Math.max(0, this.supplyUsed - (t.supply ?? t.def.supply ?? 0));
+      if (t.isHero) {
+        this.heroSys.onDeath(t.heroDef.id);
+      } else {
+        this.deployedCount[t.def.id] = Math.max(0, (this.deployedCount[t.def.id] || 0) - 1);
+        this.hud.setReserve(t.def.id, this.deployedCount[t.def.id]);
+      }
     }
   }
 
@@ -715,7 +814,7 @@ export default class BattleScreen {
     const def = UNIT_TYPES.find((u) => u.id === id);
     if (!def) return;
     if (this.credits < def.cost) { this.hud.flashError(id, 'funds'); return; }
-    if (this.supplyUsed + def.supply > ECONOMY.supplyCap) { this.hud.flashError(id, 'supply'); return; }
+    if (this.supplyUsed + def.supply > this.supplyCapEff) { this.hud.flashError(id, 'supply'); return; }
     if (this.entities.length >= this.unitCapEff) { modalManager.toast('UNIT CAP REACHED — FIELD SATURATED', 'warn'); return; }
 
     this.credits -= def.cost;
@@ -724,10 +823,136 @@ export default class BattleScreen {
     this._addEntity(def, 'player', this.selectedLane);
     this.hud.setReserve(id, this.deployedCount[id]);
     this.hud.setCredits(this.credits);
-    this.hud.updateShop(Math.floor(this.credits), ECONOMY.supplyCap - this.supplyUsed);
+    this.hud.updateShop(Math.floor(this.credits), this.supplyCapEff - this.supplyUsed);
     this.hud.pulseCard(id);
     AudioFX.sfx('buy');
     AudioFX.sfx('deploy');
+  }
+
+  /* ================= heroes (Milestone 4) ================= */
+
+  _deployHero(id) {
+    if (!this.running || this.paused || this.ending) return;
+    const def = HERO_TYPES.find((h) => h.id === id);
+    if (!def) return;
+    if (!this.heroSys.canDeploy(id)) { AudioFX.sfx('error'); return; }
+    if (this.credits < def.cost) { modalManager.toast('INSUFFICIENT CREDITS', 'warn'); return; }
+    if (this.supplyUsed + def.supply > this.supplyCapEff) { modalManager.toast('SUPPLY CAP REACHED', 'warn'); return; }
+    if (this.entities.length >= this.unitCapEff) { modalManager.toast('UNIT CAP REACHED', 'warn'); return; }
+
+    this.credits -= def.cost;
+    this.supplyUsed += def.supply;
+    this._addHero(def, this.selectedLane);
+    this.hud.setCredits(this.credits);
+    AudioFX.sfx('deploy');
+    AudioFX.sfx('combo');
+    this.hud.announce(`${def.name} DEPLOYED — LANE ${this.lanes.getLane(this.selectedLane).letter}`, 'announce-ally');
+  }
+
+  _addHero(def, laneId) {
+    const scene = this.ctx.scene;
+    const role = def.role;
+    const pos = this.lanes.getSpawnPosition('player', laneId, role);
+    const handle = scene.addHeroMesh(def, pos.x, pos.z);
+    const mods = this.upgradeSys.getMods();
+    const e = {
+      id: ++this.eid,
+      def: { id: def.id, size: def.size },
+      heroDef: def,
+      isHero: true,
+      side: 'player',
+      role,
+      laneId,
+      size: def.size,
+      hp: def.hp * mods.hpMult,
+      dmg: def.dmg * mods.dmgMult,
+      range: def.range,
+      rate: def.rate / mods.rateMult,
+      speed: def.speed,
+      cd: 0.3,
+      x: pos.x,
+      z: pos.z,
+      formJitter: 0,
+      laneShifting: false,
+      shiftT: 0,
+      value: def.cost,
+      supply: def.supply,
+      handle
+    };
+    e.maxHp = e.hp;
+    this.formation.assignSlot(e, laneId, role);
+    scene.setUnitHP(handle, 1);
+    this.entities.push(e);
+    this.heroSys.markDeployed(def.id, e);
+    return e;
+  }
+
+  /* ================= structures (Milestone 4) ================= */
+
+  /** Spending hook used by StructureSystem; returns false when blocked. */
+  spendFor(cost, supply) {
+    if (this.credits < cost) { modalManager.toast('INSUFFICIENT CREDITS', 'warn'); return false; }
+    if (this.supplyUsed + supply > this.supplyCapEff) { modalManager.toast('SUPPLY CAP REACHED', 'warn'); return false; }
+    this.credits -= cost;
+    this.supplyUsed += supply;
+    this.hud.setCredits(this.credits);
+    AudioFX.sfx('buy');
+    return true;
+  }
+
+  /* ================= upgrades (Milestone 4) ================= */
+
+  _toggleUpgrades() {
+    this.upgradesOpen = !this.upgradesOpen;
+    this.hud.setUpgradePanel(this.upgradesOpen);
+    if (this.upgradesOpen) this._refreshUpgradePanel();
+    AudioFX.sfx('click');
+  }
+
+  _buyUpgrade(id) {
+    if (!this.running || this.paused || this.ending) return;
+    const node = this.upgradeSys.node(id);
+    if (!node) return;
+    if (!this.upgradeSys.canBuy(id)) { AudioFX.sfx('error'); return; }
+    this.credits -= node.cost;
+    this.upgradeSys.buy(id);
+    this.hud.setCredits(this.credits);
+    this.hud.setSupply(this.supplyUsed, this.supplyCapEff);
+    this._refreshUpgradePanel();
+    AudioFX.sfx('combo');
+    this.hud.announce(`RESEARCH COMPLETE — ${node.name}`, 'announce-ally');
+  }
+
+  _refreshUpgradePanel() {
+    const nodes = [];
+    Object.values(UPGRADE_TREE).forEach((branch) => {
+      branch.forEach((n) => {
+        nodes.push({
+          id: n.id,
+          branch: n.branch,
+          name: n.name,
+          desc: n.desc,
+          cost: n.cost,
+          purchased: this.upgradeSys.isPurchased(n.id),
+          locked: n.req && !this.upgradeSys.isPurchased(n.req),
+          affordable: this.credits >= n.cost
+        });
+      });
+    });
+    this.hud.renderUpgrades(nodes);
+  }
+
+  /** Updates hero chips + structure affordability on the command rail. */
+  _refreshCommandRail() {
+    HERO_TYPES.forEach((h) => {
+      const st = this.heroSys.state[h.id];
+      this.hud.setHero(h.id, {
+        alive: st.alive,
+        cdPct: st.alive ? 0 : st.cooldown / h.cooldown,
+        ultPct: st.alive ? st.charge / h.ultKills : 0,
+        affordable: this.credits >= h.cost
+      });
+    });
   }
 
   _useAbility() {

@@ -37,7 +37,7 @@ const RED = new Color3(1, 0.28, 0.16);
 const HP_GREEN = new Color3(0.24, 1, 0.55);
 
 import LaneSystem from '../core/LaneSystem.js';
-import { LANE_CONFIG, BATTLE } from '../core/Config.js';
+import { LANE_CONFIG, BATTLE, COVER_DEFS } from '../core/Config.js';
 
 export default class SceneController {
   constructor() {
@@ -476,7 +476,8 @@ export default class SceneController {
 
     const stripe = MeshBuilder.CreateBox('stripe', { width: bw + 0.04, height: 0.14 * s, depth: bd * 0.55 }, this.scene);
     stripe.position.y = bh + 0.02;
-    stripe.material = this._emissiveMat(`stripeM${root.uniqueId}`, accent, 0.85);
+    const stripeMat = this._emissiveMat(`stripeM${root.uniqueId}`, accent, 0.85);
+    stripe.material = stripeMat;
     stripe.parent = root;
 
     const turret = MeshBuilder.CreateBox('turret', { width: bw * 0.62, height: 0.4 * s, depth: bd * 0.5 }, this.scene);
@@ -511,9 +512,207 @@ export default class SceneController {
     this.shadowGen.addShadowCaster(body);
     this.shadowGen.addShadowCaster(turret);
 
-    const handle = { root, hpFg, hpMat: fgMat, def, side, id: root.uniqueId, tx: x, tz: z, lerp: 9 };
+    const handle = { root, hpFg, hpMat: fgMat, stripeMat, def, side, id: root.uniqueId, tx: x, tz: z, lerp: 9 };
     this.units.push(handle);
     return handle;
+  }
+
+  /* ---------------- heroes / structures / preview (Milestone 4) ---------------- */
+
+  /** Makes a unit's accent stripe glow brighter (upgrade feedback). */
+  brightenStripe(handle) {
+    if (handle && handle.stripeMat) {
+      handle.stripeMat.emissiveColor = handle.stripeMat.emissiveColor.scale(1.22);
+    }
+  }
+
+  /**
+   * Distinctive hero rig: taller hull, base glow ring and an amber
+   * ultimate-charge bar above the health bar.
+   * @param {object} heroDef HERO_TYPES entry
+   * @param {number} x @param {number} z
+   */
+  addHeroMesh(heroDef, x, z) {
+    const scene = this.scene;
+    const s = heroDef.size || 1.3;
+    const accent = heroDef.accent === 'green' ? HP_GREEN : heroDef.accent === 'amber' ? AMBER : CYAN;
+    const root = new TransformNode(`hero-${heroDef.id}`, scene);
+    root.position.set(x, 0, z);
+    root.rotation.y = Math.PI / 2;
+
+    const hullMat = new StandardMaterial('heroHull', scene);
+    hullMat.diffuseColor = new Color3(0.1, 0.16, 0.24);
+    hullMat.specularColor = new Color3(0.25, 0.3, 0.35);
+
+    const body = MeshBuilder.CreateBox('heroBody', { width: 1.5 * s, height: 1.1 * s, depth: 2.4 * s }, scene);
+    body.position.y = 0.6 * s;
+    body.material = hullMat;
+    body.parent = root;
+
+    const cab = MeshBuilder.CreateBox('heroCab', { width: 1.1 * s, height: 0.7 * s, depth: 1.2 * s }, scene);
+    cab.position.set(0, 1.4 * s, -0.3 * s);
+    cab.material = hullMat;
+    cab.parent = root;
+
+    const stripe = MeshBuilder.CreateBox('heroStripe', { width: 1.54 * s, height: 0.2 * s, depth: 2.44 * s }, scene);
+    stripe.position.y = 1.15 * s;
+    const stripeMat = this._emissiveMat(`heroStripeM${root.uniqueId}`, accent, 1.4);
+    stripe.material = stripeMat;
+    stripe.parent = root;
+
+    // base glow ring
+    const ring = MeshBuilder.CreateTorus('heroRing', { diameter: 3.1 * s, tube: 0.07, tessellation: 40 }, scene);
+    ring.position.y = 0.1;
+    const ringMat = this._emissiveMat(`heroRingM${root.uniqueId}`, accent, 1.2);
+    ringMat.alpha = 0.6;
+    ring.material = ringMat;
+    ring.parent = root;
+
+    // health bar
+    const barY = 2.3 * s;
+    const hpBg = MeshBuilder.CreateBox('heroHpBg', { width: 2.2, height: 0.14, depth: 0.05 }, scene);
+    hpBg.position.set(0, barY, 0);
+    const bgMat = new StandardMaterial('heroHpBgM', scene);
+    bgMat.diffuseColor = new Color3(0.02, 0.03, 0.05);
+    hpBg.material = bgMat;
+    hpBg.parent = root;
+    const hpFg = MeshBuilder.CreateBox('heroHpFg', { width: 2.2, height: 0.14, depth: 0.07 }, scene);
+    hpFg.position.set(0, barY, -0.012);
+    const hpMat = this._emissiveMat(`heroHpM${root.uniqueId}`, HP_GREEN, 0.9);
+    hpFg.material = hpMat;
+    hpFg.parent = root;
+
+    // ultimate charge bar (amber, above health)
+    const ultFg = MeshBuilder.CreateBox('heroUltFg', { width: 2.2, height: 0.09, depth: 0.07 }, scene);
+    ultFg.position.set(0, barY + 0.24, -0.012);
+    const ultMat = this._emissiveMat(`heroUltM${root.uniqueId}`, AMBER, 1.3);
+    ultFg.material = ultMat;
+    ultFg.parent = root;
+    ultFg.scaling.x = 0.001;
+
+    this.shadowGen.addShadowCaster(body);
+    this.shadowGen.addShadowCaster(cab);
+
+    const handle = {
+      root, hpFg, hpMat, stripeMat, ultFg, hpW: 2.2,
+      def: { id: heroDef.id, size: heroDef.size }, side: 'player',
+      id: root.uniqueId, tx: x, tz: z, lerp: 9
+    };
+    this.units.push(handle);
+    return handle;
+  }
+
+  /** Sets the hero ultimate charge bar width (0..1). */
+  setHeroCharge(handle, pct) {
+    if (handle && handle.ultFg) {
+      const p = Math.max(0, Math.min(1, pct));
+      handle.ultFg.scaling.x = Math.max(0.001, p);
+      handle.ultFg.position.x = -(1 - p) * (handle.hpW / 2);
+    }
+  }
+
+  /**
+   * Structure mesh per type: turret (barrel + dome), mine (flat disc),
+   * sandbag / barricade reuse the cover look.
+   * @param {object} s structure runtime object
+   */
+  addStructureMesh(s) {
+    const scene = this.scene;
+    const def = s.def;
+    const root = new TransformNode(`struct-${s.id}`, scene);
+    root.position.set(s.x, 0, s.z);
+
+    if (def.id === 'turret') {
+      const mat = new StandardMaterial('turM', scene);
+      mat.diffuseColor = new Color3(0.12, 0.18, 0.24);
+      mat.specularColor = new Color3(0.2, 0.25, 0.3);
+      const base = MeshBuilder.CreateCylinder('turBase', { diameter: 1.3, height: 0.5, tessellation: 16 }, scene);
+      base.position.y = 0.25;
+      base.material = mat;
+      base.parent = root;
+      const dome = MeshBuilder.CreateSphere('turDome', { diameter: 0.9 }, scene);
+      dome.position.y = 0.85;
+      dome.material = mat;
+      dome.parent = root;
+      const barrel = MeshBuilder.CreateCylinder('turBarrel', { diameter: 0.16, height: 1.2 }, scene);
+      barrel.rotation.x = Math.PI / 2;
+      barrel.position.set(0, 0.95, 0.6);
+      barrel.material = mat;
+      barrel.parent = root;
+      const lamp = MeshBuilder.CreateSphere('turLamp', { diameter: 0.22 }, scene);
+      lamp.position.y = 1.35;
+      lamp.material = this._emissiveMat(`turLampM${root.uniqueId}`, CYAN, 1.5);
+      lamp.parent = root;
+      this.shadowGen.addShadowCaster(base);
+      this.shadowGen.addShadowCaster(dome);
+    } else if (def.id === 'mine') {
+      const disc = MeshBuilder.CreateCylinder('mineDisc', { diameter: 1.0, height: 0.18, tessellation: 20 }, scene);
+      disc.position.y = 0.09;
+      const mat = new StandardMaterial('mineM', scene);
+      mat.diffuseColor = new Color3(0.22, 0.14, 0.1);
+      disc.material = mat;
+      disc.parent = root;
+      const led = MeshBuilder.CreateSphere('mineLed', { diameter: 0.18 }, scene);
+      led.position.y = 0.24;
+      led.material = this._emissiveMat(`mineLedM${root.uniqueId}`, RED, 1.6);
+      led.parent = root;
+    } else {
+      // sandbag / barricade share the cover look
+      const cd = COVER_DEFS[def.id] || { w: 2, h: 1, d: 1 };
+      const mat = new StandardMaterial(`stM${s.id}`, scene);
+      mat.diffuseColor = def.id === 'barricade' ? new Color3(0.14, 0.17, 0.2) : new Color3(0.3, 0.25, 0.15);
+      const box = MeshBuilder.CreateBox('stBox', { width: cd.w, height: cd.h, depth: cd.d }, scene);
+      box.position.y = cd.h / 2;
+      box.material = mat;
+      box.parent = root;
+      this.shadowGen.addShadowCaster(box);
+    }
+    return root;
+  }
+
+  /** Sinks / darkens a damaged structure. */
+  updateStructureDamage(s) {
+    const ratio = Math.max(0, s.hp / s.maxHp);
+    if (s.handle) s.handle.position.y = -(1 - ratio) * 0.15;
+  }
+
+  /** @param {object} s structure runtime object */
+  removeStructureMesh(s) {
+    if (s.handle) {
+      s.handle.dispose();
+      s.handle = null;
+    }
+  }
+
+  /**
+   * Ghost preview while placing a structure.
+   * @param {number} x @param {number} z @param {boolean} valid
+   */
+  setPlacementPreview(x, z, valid) {
+    if (!this._preview) {
+      const box = MeshBuilder.CreateBox('pvBox', { width: 2.2, height: 1.2, depth: 2.2 }, this.scene);
+      const bm = this._emissiveMat('pvBoxM', CYAN, 1.0);
+      bm.alpha = 0.22;
+      box.material = bm;
+      const ring = MeshBuilder.CreateTorus('pvRing', { diameter: 3.4, tube: 0.08, tessellation: 40 }, this.scene);
+      ring.position.y = 0.12;
+      const rm = this._emissiveMat('pvRingM', CYAN, 1.4);
+      ring.material = rm;
+      this._preview = { box, ring, boxMat: bm, ringMat: rm };
+    }
+    this._preview.box.position.set(x, 0.6, z);
+    this._preview.ring.position.set(x, 0.12, z);
+    const color = valid ? HP_GREEN : RED;
+    this._preview.boxMat.emissiveColor = color.scale(0.9);
+    this._preview.ringMat.emissiveColor = color.scale(1.3);
+  }
+
+  clearPlacementPreview() {
+    if (this._preview) {
+      this._preview.box.dispose();
+      this._preview.ring.dispose();
+      this._preview = null;
+    }
   }
 
   /**

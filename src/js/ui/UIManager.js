@@ -331,6 +331,12 @@ const UIManager = {
       if (laneIdx >= 0) { EventBus.emit('lane:select', { id: laneIdx }); e.preventDefault(); }
       if (e.code === 'ArrowLeft') { EventBus.emit('lane:shift', { dir: -1 }); e.preventDefault(); }
       if (e.code === 'ArrowRight') { EventBus.emit('lane:shift', { dir: 1 }); e.preventDefault(); }
+      // Milestone 4: heroes (Z/X/C), structures (5-8), research (U), cancel placement (Esc)
+      const heroMap = { KeyZ: 'medic', KeyX: 'assault', KeyC: 'support' };
+      if (heroMap[e.code]) { EventBus.emit('hero:deploy', { id: heroMap[e.code] }); e.preventDefault(); }
+      const structMap = { Digit5: 'sandbag', Digit6: 'barricade', Digit7: 'turret', Digit8: 'mine' };
+      if (structMap[e.code]) { EventBus.emit('structure:select', { id: structMap[e.code] }); e.preventDefault(); }
+      if (e.code === 'KeyU') { EventBus.emit('upgrades:toggle'); e.preventDefault(); }
     };
     window.addEventListener('keydown', onKey);
     this.disposers.push(() => window.removeEventListener('keydown', onKey));
