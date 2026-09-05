@@ -148,6 +148,25 @@ export default class SettingsMenu {
     });
     shakeWrap.appendChild(this.shakeSw);
 
+    /* impact FX level (Visual Bible: blood NONE / NORMAL / EXTREME) */
+    const goreWrap = make('div', 'toggle-row');
+    goreWrap.innerHTML = `<div class="t-meta"><b>IMPACT FX</b><small>Debris & bio-splatter density</small></div>`;
+    const goreGroup = make('div', 'gore-group');
+    this.goreBtns = {};
+    ['NONE', 'NORMAL', 'EXTREME'].forEach((lv) => {
+      const b = make('button', 'gore-btn mono', lv);
+      on(b, 'mouseenter', () => AudioFX.sfx('hover'));
+      on(b, 'click', () => {
+        AudioFX.sfx('click');
+        Object.entries(this.goreBtns).forEach(([l, el]) => el.classList.toggle('active', l === lv));
+        QualityManager.applyGore(lv);
+      });
+      this.goreBtns[lv] = b;
+      goreGroup.appendChild(b);
+    });
+    goreWrap.appendChild(goreGroup);
+    toggleWrap.appendChild(goreWrap);
+
     on(panel.querySelector('#set-back'), 'click', () => { AudioFX.sfx('back'); EventBus.emit('settings:close'); });
     this.fsBtn = panel.querySelector('#set-fullscreen');
     on(this.fsBtn, 'click', () => { AudioFX.sfx('click'); this.ctx.toggleFullscreen(); });
@@ -185,6 +204,8 @@ export default class SettingsMenu {
       this.toggleEls[t.key].classList.toggle('on', !!s[t.key]);
     });
     this.shakeSw.classList.toggle('on', !!s.screenShake);
+    const gore = s.gore || 'NORMAL';
+    Object.entries(this.goreBtns).forEach(([lv, el]) => el.classList.toggle('active', lv === gore));
     SLIDERS.forEach(({ key }) => {
       const input = this[`slider_${key}`];
       const v = s[key];

@@ -31,9 +31,15 @@ const {
 
 export { BABYLON };
 
-const CYAN = new Color3(0, 0.78, 1);
-const AMBER = new Color3(1, 0.84, 0);
-const RED = new Color3(1, 0.28, 0.16);
+/* ---------- VISUAL BIBLE PALETTE — Frontline: Operación Ironveil ---------- */
+const CYAN   = new Color3(0.0, 0.78, 1.0);   // #00C6FF player neon
+const ICE    = new Color3(0.30, 0.65, 1.0);  // #4DA6FF ice blue
+const AMBER  = new Color3(1.0, 0.67, 0.20);  // #FFAA33 player amber
+const RED    = new Color3(1.0, 0.16, 0.16);  // #FF2A2A enemy red
+const MAGMA  = new Color3(1.0, 0.40, 0.0);   // #FF6600 magma orange
+const PURPLE = new Color3(0.48, 0.12, 0.64); // #7B1FA2 alien core
+const STEEL  = new Color3(0.10, 0.12, 0.15); // #1A1F26 player steel
+const CARBON = new Color3(0.05, 0.05, 0.06); // #0D0D0D alien carbon
 const HP_GREEN = new Color3(0.24, 1, 0.55);
 
 import LaneSystem from '../core/LaneSystem.js';
@@ -49,6 +55,10 @@ export default class SceneController {
     this.fps = 60;
     this.particlesOn = true;
     this.dustRunning = false;
+    this.smokeRunning = false;
+    this.goreLevel = 'NORMAL';
+    this._blinkers = [];
+    this.floaters = [];
     this.ok = false;
   }
 
@@ -69,26 +79,33 @@ export default class SceneController {
   /* ---------------- world ---------------- */
   _buildWorld() {
     const scene = this.scene;
-    scene.clearColor = new Color4(0.008, 0.016, 0.032, 1);
-    scene.fogMode = Scene.FOGMODE_EXP2;
-    scene.fogDensity = 0.0075;
-    scene.fogColor = new Color3(0.012, 0.024, 0.05);
+    scene.clearColor = new Color4(0.02, 0.027, 0.04, 1); // #05070A deep void
+    scene.fogMode = Scene.FOGMODE_LINEAR;
+    scene.fogStart = 62;
+    scene.fogEnd = 180;
+    scene.fogColor = new Color3(0.02, 0.027, 0.045);
 
     this.camera = new ArcRotateCamera('cam', Math.PI * 0.72, 1.05, 40, new Vector3(0, 2, 0), scene);
     this.camera.minZ = 0.5;
+    this.camera.maxZ = 900;
     this.camera.fov = 0.92;
     this.desired = { alpha: Math.PI * 0.72, beta: 1.05, radius: 40, tx: 0, ty: 2, tz: 0 };
 
+    // ambient: faint blue bounce
     const hemi = new HemisphericLight('hemi', new Vector3(0, 1, 0), scene);
-    hemi.intensity = 0.55;
-    hemi.groundColor = new Color3(0.02, 0.05, 0.1);
+    hemi.intensity = 0.5;
+    hemi.diffuse = new Color3(0.62, 0.74, 0.95);
+    hemi.groundColor = new Color3(0.03, 0.05, 0.1);
 
-    this.dirLight = new DirectionalLight('dir', new Vector3(-0.5, -1, 0.35), scene);
-    this.dirLight.position = new Vector3(-25, 40, -15);
-    this.dirLight.intensity = 1.25;
+    // cold key light from behind the player base — long shadows toward the fortress
+    this.dirLight = new DirectionalLight('dir', new Vector3(0.55, -1, 0.18), scene);
+    this.dirLight.position = new Vector3(-48, 46, -14);
+    this.dirLight.diffuse = new Color3(0.8, 0.88, 1.0);
+    this.dirLight.specular = new Color3(0.35, 0.45, 0.6);
+    this.dirLight.intensity = 1.2;
     this.shadowGen = new ShadowGenerator(1024, this.dirLight);
     this.shadowGen.useBlurExponentialShadowMap = true;
-    this.shadowGen.setDarkness(0.35);
+    this.shadowGen.setDarkness(0.42);
 
     // floor
     const under = MeshBuilder.CreateGround('under', { width: 200, height: 120 }, scene);
@@ -102,22 +119,15 @@ export default class SceneController {
     ground.material = this._buildGridMaterial();
     ground.receiveShadows = true;
 
-    // lane boundary strips
-    [-11, 11].forEach((z, i) => {
-      const strip = MeshBuilder.CreateBox(`strip${i}`, { width: 70, height: 0.06, depth: 0.22 }, scene);
-      strip.position.set(0, 0.03, z);
-      const m = this._emissiveMat(`stripM${i}`, i === 0 ? CYAN : RED, 0.55);
-      m.alpha = 0.5;
-      strip.material = m;
-    });
+    this.glow = new GlowLayer('glow', scene, { intensity: 0.8 });
 
-    this.glow = new GlowLayer('glow', scene, { intensity: 0.65 });
-
+    this._buildSky();
     this._buildBases();
     this._buildProps();
     this.laneSystem = new LaneSystem({ count: LANE_CONFIG.count });
     this._buildLanes();
     this._buildDust();
+    this._buildEnemySmoke();
 
     this.engine.runRenderLoop(() => {
       const dt = Math.min(this.engine.getDeltaTime() / 1000, 0.05);
@@ -126,38 +136,191 @@ export default class SceneController {
     });
   }
 
-  /* holographic grid floor, drawn procedurally (no external assets) */
+  /* worn circuit floor: gunmetal base #15191E + hex lattice & traces #1E2A33 */
   _buildGridMaterial() {
     const size = 512;
     const tex = new DynamicTexture('gridTex', size, this.scene, false);
     const ctx = tex.getContext();
-    ctx.fillStyle = '#050b16';
+    ctx.fillStyle = '#15191e';
     ctx.fillRect(0, 0, size, size);
-    const minor = size / 8;
-    ctx.strokeStyle = 'rgba(0,150,210,0.30)';
-    ctx.lineWidth = 1.5;
-    for (let i = 0; i <= 8; i++) {
-      const p = i * minor;
-      ctx.beginPath(); ctx.moveTo(p, 0); ctx.lineTo(p, size); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(0, p); ctx.lineTo(size, p); ctx.stroke();
+
+    // subtle hex lattice
+    ctx.strokeStyle = 'rgba(30,42,51,0.6)';
+    ctx.lineWidth = 1.4;
+    const r = 34;
+    const h = r * Math.sqrt(3);
+    for (let row = -1; row < size / h + 1; row++) {
+      for (let col = -1; col < size / (r * 1.5) + 1; col++) {
+        const cx = col * r * 1.5;
+        const cy = row * h + (col % 2 ? h / 2 : 0);
+        ctx.beginPath();
+        for (let k = 0; k <= 6; k++) {
+          const a = (Math.PI / 3) * k + Math.PI / 6;
+          const px = cx + r * Math.cos(a);
+          const py = cy + r * Math.sin(a);
+          if (k === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        }
+        ctx.stroke();
+      }
     }
-    ctx.strokeStyle = 'rgba(0,198,255,0.7)';
-    ctx.lineWidth = 3;
+
+    // circuit traces with node pads
+    ctx.strokeStyle = 'rgba(38,54,66,0.9)';
+    ctx.lineWidth = 2.6;
+    for (let i = 0; i < 26; i++) {
+      let x = Math.random() * size;
+      let y = Math.random() * size;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      for (let sgm = 0; sgm < 3; sgm++) {
+        if (Math.random() > 0.5) x += (Math.random() - 0.5) * 130;
+        else y += (Math.random() - 0.5) * 130;
+        ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(30,42,51,1)';
+      ctx.fillRect(x - 3, y - 3, 6, 6);
+    }
+
+    // a few live cyan traces + major panel seams
+    ctx.strokeStyle = 'rgba(0,198,255,0.14)';
+    ctx.lineWidth = 2;
+    for (let i = 0; i < 5; i++) {
+      let x = Math.random() * size;
+      let y = Math.random() * size;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      for (let sgm = 0; sgm < 4; sgm++) {
+        if (Math.random() > 0.5) x += (Math.random() - 0.5) * 170;
+        else y += (Math.random() - 0.5) * 170;
+        ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+    ctx.strokeStyle = 'rgba(0,198,255,0.16)';
+    ctx.lineWidth = 2.5;
     for (let i = 0; i <= 2; i++) {
       const p = i * (size / 2);
       ctx.beginPath(); ctx.moveTo(p, 0); ctx.lineTo(p, size); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(0, p); ctx.lineTo(size, p); ctx.stroke();
     }
+
     tex.update();
-    tex.uScale = 12;
-    tex.vScale = 5;
+    tex.uScale = 11;
+    tex.vScale = 4.5;
     const mat = new StandardMaterial('groundMat', this.scene);
     mat.diffuseTexture = tex;
-    mat.diffuseColor = new Color3(0.22, 0.22, 0.22);
+    mat.diffuseColor = new Color3(0.9, 0.9, 0.92);
     mat.emissiveTexture = tex;
-    mat.emissiveColor = new Color3(0.5, 0.5, 0.5);
-    mat.specularColor = Color3.Black();
+    mat.emissiveColor = new Color3(0.5, 0.5, 0.55);
+    mat.specularColor = new Color3(0.07, 0.08, 0.1); // brushed metal sheen
+    mat.specularPower = 24;
     return mat;
+  }
+
+  /* ---------------- space sky (Visual Bible) ---------------- */
+  _buildSky() {
+    const scene = this.scene;
+
+    // gradient dome: #020305 horizon → #0A1A33 zenith, stars & blue nebulae
+    const sky = MeshBuilder.CreateSphere('sky', { diameter: 520, segments: 20 }, scene);
+    sky.applyFog = false;
+    sky.infiniteDistance = true;
+    const tex = new DynamicTexture('skyTex', { width: 1024, height: 512 }, scene, false);
+    const c = tex.getContext();
+    const grad = c.createLinearGradient(0, 0, 0, 512);
+    grad.addColorStop(0, '#0a1a33');
+    grad.addColorStop(0.45, '#050b18');
+    grad.addColorStop(0.75, '#030509');
+    grad.addColorStop(1, '#020305');
+    c.fillStyle = grad;
+    c.fillRect(0, 0, 1024, 512);
+    // nebulae (bluish, one faint violet)
+    const neb = (x, y, r, col, a) => {
+      const g = c.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, col.replace('$A', a));
+      g.addColorStop(1, col.replace('$A', '0'));
+      c.fillStyle = g;
+      c.fillRect(x - r, y - r, r * 2, r * 2);
+    };
+    neb(260, 110, 190, 'rgba(77,166,255,$A)', '0.10');
+    neb(700, 80, 240, 'rgba(0,198,255,$A)', '0.07');
+    neb(880, 170, 150, 'rgba(123,31,162,$A)', '0.06');
+    neb(480, 60, 120, 'rgba(140,200,255,$A)', '0.08');
+    // star field
+    for (let i = 0; i < 460; i++) {
+      const x = Math.random() * 1024;
+      const y = Math.random() * 340;
+      const s = Math.random();
+      c.fillStyle = s > 0.92 ? 'rgba(160,225,255,0.95)' : `rgba(235,244,255,${0.25 + Math.random() * 0.65})`;
+      const r = s > 0.95 ? 2.2 : s > 0.8 ? 1.5 : 1;
+      c.fillRect(x, y, r, r);
+    }
+    tex.update();
+    const skyMat = new StandardMaterial('skyMat', scene);
+    skyMat.emissiveTexture = tex;
+    skyMat.diffuseColor = Color3.Black();
+    skyMat.disableLighting = true;
+    skyMat.backFaceCulling = false;
+    skyMat.specularColor = Color3.Black();
+    sky.material = skyMat;
+
+    // distant ringed planet beyond the fortress
+    const planet = MeshBuilder.CreateSphere('planet', { diameter: 36, segments: 20 }, scene);
+    planet.position.set(150, 98, -95);
+    planet.applyFog = false;
+    const pMat = new StandardMaterial('planetMat', scene);
+    pMat.diffuseColor = Color3.Black();
+    pMat.emissiveColor = new Color3(0.05, 0.1, 0.2);
+    pMat.disableLighting = true;
+    planet.material = pMat;
+    const ringP = MeshBuilder.CreateTorus('planetRing', { diameter: 54, tube: 1.0, tessellation: 48 }, scene);
+    ringP.position.copyFrom(planet.position);
+    ringP.rotation.x = 1.25;
+    ringP.rotation.z = 0.2;
+    ringP.applyFog = false;
+    const rpMat = this._emissiveMat('planetRingM', ICE, 0.32);
+    rpMat.alpha = 0.22;
+    ringP.material = rpMat;
+
+    // capital ships in orbit: allied cruiser (cyan drives) & enemy dreadnought (red)
+    this._buildShip(-150, 92, -70, 0.7, CYAN, 'cruiser');
+    this._buildShip(118, 76, 82, -0.55, RED, 'dreadnought');
+  }
+
+  /* distant capital-ship silhouette with glowing drives */
+  _buildShip(x, y, z, rotY, glowColor, name) {
+    const scene = this.scene;
+    const ship = new TransformNode(`ship-${name}`, scene);
+    ship.position.set(x, y, z);
+    ship.rotation.y = rotY;
+    const hullMat = new StandardMaterial(`hull-${name}`, scene);
+    hullMat.diffuseColor = new Color3(0.028, 0.032, 0.045);
+    hullMat.emissiveColor = new Color3(0.012, 0.016, 0.028);
+    hullMat.disableLighting = true;
+    const hull = MeshBuilder.CreateBox(`hullM-${name}`, { width: 34, height: 5, depth: 9 }, scene);
+    hull.material = hullMat;
+    hull.parent = ship;
+    const bridge = MeshBuilder.CreateBox(`bridge-${name}`, { width: 12, height: 4, depth: 5 }, scene);
+    bridge.position.set(-4, 4, 0);
+    bridge.material = hullMat;
+    bridge.parent = ship;
+    const prow = MeshBuilder.CreateBox(`prow-${name}`, { width: 10, height: 3, depth: 5 }, scene);
+    prow.position.set(19, -0.5, 0);
+    prow.rotation.y = 0;
+    prow.material = hullMat;
+    prow.parent = ship;
+    // engine drives
+    [-3, 0, 3].forEach((dz, i) => {
+      const eng = MeshBuilder.CreateBox(`eng-${name}${i}`, { width: 0.6, height: 1.6, depth: 1.6 }, scene);
+      eng.position.set(-17.4, 0, dz);
+      const em = this._emissiveMat(`engM-${name}${i}`, glowColor, 1.6);
+      eng.material = em;
+      eng.parent = ship;
+      this._blinkers.push({ mat: em, base: glowColor.clone(), speed: 2 + i * 0.4, phase: i });
+    });
+    ship.getChildMeshes().forEach((m) => { m.applyFog = false; });
+    this.floaters.push({ mesh: ship, baseY: y, amp: 1.1, speed: 0.25, phase: x, parent: null });
   }
 
   /* ---------------- lanes (Milestone 2) ---------------- */
@@ -172,17 +335,90 @@ export default class SceneController {
     const lanes = this.laneSystem.lanes;
     const laneRoot = new TransformNode('lanes', scene);
     this.laneRoot = laneRoot;
+    const span = 58;
 
-    // inner boundary lines (subtle energy seams between corridors)
-    for (let i = 0; i < lanes.length - 1; i++) {
-      const z = (lanes[i].zCenter + lanes[i + 1].zCenter) / 2;
-      const line = MeshBuilder.CreateBox(`laneLine${i}`, { width: 58, height: 0.03, depth: 0.09 }, scene);
-      line.position.set(0, 0.02, z);
-      const m = this._emissiveMat(`laneLineM${i}`, CYAN, 0.5);
-      m.alpha = 0.3;
+    // continuous neon edges between corridors (core line + soft underglow)
+    const edgeAt = (z, i, intensity, alpha) => {
+      const line = MeshBuilder.CreateBox(`laneLine${i}`, { width: span, height: 0.045, depth: 0.14 }, scene);
+      line.position.set(0, 0.025, z);
+      const m = this._emissiveMat(`laneLineM${i}`, CYAN, intensity);
+      m.alpha = alpha;
       line.material = m;
       line.parent = laneRoot;
+      const glow = MeshBuilder.CreateBox(`laneGlow${i}`, { width: span, height: 0.02, depth: 1.15 }, scene);
+      glow.position.set(0, 0.012, z);
+      const gm = this._emissiveMat(`laneGlowM${i}`, CYAN, 0.55);
+      gm.alpha = 0.13;
+      glow.material = gm;
+      glow.parent = laneRoot;
+    };
+    for (let i = 0; i < lanes.length - 1; i++) {
+      edgeAt((lanes[i].zCenter + lanes[i + 1].zCenter) / 2, i, 1.15, 0.95);
     }
+    // outer field edges
+    edgeAt(BATTLE.laneMin - 0.55, 'L', 0.8, 0.7);
+    edgeAt(BATTLE.laneMax + 0.55, 'R', 0.8, 0.7);
+
+    // low steel barriers between lanes (visual cover, never overhead)
+    const steelMat = new StandardMaterial('barrierSteel', scene);
+    steelMat.diffuseColor = STEEL.clone();
+    steelMat.specularColor = new Color3(0.18, 0.22, 0.26);
+    for (let i = 0; i < lanes.length - 1; i++) {
+      const z = (lanes[i].zCenter + lanes[i + 1].zCenter) / 2;
+      for (let x = -24; x <= 24; x += 5.6) {
+        const seg = MeshBuilder.CreateBox(`bar${i}-${x}`, { width: 2.5, height: 0.52, depth: 0.3 }, scene);
+        seg.position.set(x, 0.26, z);
+        seg.material = steelMat;
+        seg.parent = laneRoot;
+        const top = MeshBuilder.CreateBox(`barT${i}-${x}`, { width: 2.5, height: 0.045, depth: 0.32 }, scene);
+        top.position.set(x, 0.545, z);
+        const tm = this._emissiveMat(`barTM${i}-${x}`, CYAN, 0.55);
+        tm.alpha = 0.55;
+        top.material = tm;
+        top.parent = laneRoot;
+      }
+    }
+
+    // holographic distance markers + midfield line
+    [-18, -9, 9, 18].forEach((x, i) => {
+      const dash = MeshBuilder.CreateBox(`distDash${i}`, { width: 0.12, height: 0.02, depth: (BATTLE.laneMax - BATTLE.laneMin) + 0.6 }, scene);
+      dash.position.set(x, 0.035, 0);
+      const dm = this._emissiveMat(`distM${i}`, ICE, 0.7);
+      dm.alpha = 0.38;
+      dash.material = dm;
+      dash.parent = laneRoot;
+    });
+    const mid = MeshBuilder.CreateBox('midLine', { width: 0.2, height: 0.025, depth: (BATTLE.laneMax - BATTLE.laneMin) + 1.4 }, scene);
+    mid.position.set(0, 0.04, 0);
+    const mm = this._emissiveMat('midM', AMBER, 0.8);
+    mm.alpha = 0.5;
+    mid.material = mm;
+    mid.parent = laneRoot;
+
+    // ground-level gantry walkways crossing the lanes (visual cover)
+    [-9, 9].forEach((x, gi) => {
+      const deck = MeshBuilder.CreateBox(`gantry${gi}`, { width: 3.2, height: 0.34, depth: (BATTLE.laneMax - BATTLE.laneMin) + 3 }, scene);
+      deck.position.set(x, 0.17, 0);
+      deck.material = steelMat;
+      deck.parent = laneRoot;
+      [-1, 1].forEach((s, ri) => {
+        const rail = MeshBuilder.CreateBox(`grail${gi}${ri}`, { width: 3.2, height: 0.06, depth: 0.09 }, scene);
+        rail.position.set(x, 0.37, s * ((BATTLE.laneMax - BATTLE.laneMin) / 2 + 1.35));
+        const rm = this._emissiveMat(`grailM${gi}${ri}`, CYAN, 0.9);
+        rm.alpha = 0.75;
+        rail.material = rm;
+        rail.parent = laneRoot;
+      });
+      // grating glow seams
+      for (let z = -6; z <= 6; z += 3) {
+        const seam = MeshBuilder.CreateBox(`gseam${gi}-${z}`, { width: 3.2, height: 0.02, depth: 0.06 }, scene);
+        seam.position.set(x, 0.35, z);
+        const sm = this._emissiveMat(`gseamM${gi}-${z}`, ICE, 0.4);
+        sm.alpha = 0.3;
+        seam.material = sm;
+        seam.parent = laneRoot;
+      }
+    });
 
     // per-lane highlight strips (selection / hover feedback)
     this._laneStripMats = [];
@@ -302,67 +538,334 @@ export default class SceneController {
 
   _buildBases() {
     this.bases = {};
-    ['player', 'enemy'].forEach((side) => {
-      const sign = side === 'player' ? -1 : 1;
-      const accent = side === 'player' ? CYAN : RED;
-      const root = new TransformNode(`base-${side}`, this.scene);
-      root.position.x = sign * 33;
+    this._buildPlayerHub();
+    this._buildAlienFortress();
+  }
 
-      const wallMat = new StandardMaterial(`wall-${side}`, this.scene);
-      wallMat.diffuseColor = side === 'player' ? new Color3(0.1, 0.16, 0.22) : new Color3(0.2, 0.1, 0.08);
-      wallMat.specularColor = new Color3(0.1, 0.1, 0.1);
+  /* ---- PLAYER: futuristic command hub (steel + cyan energy) ---- */
+  _buildPlayerHub() {
+    const scene = this.scene;
+    const root = new TransformNode('base-player', scene);
+    root.position.x = -33;
 
-      const wall = MeshBuilder.CreateBox(`bwall-${side}`, { width: 3, height: 5.4, depth: 19 }, this.scene);
-      wall.material = wallMat;
-      wall.position.y = 2.7;
-      wall.parent = root;
+    const steelMat = new StandardMaterial('hubSteel', scene);
+    steelMat.diffuseColor = STEEL.clone();
+    steelMat.specularColor = new Color3(0.22, 0.26, 0.3);
+    steelMat.specularPower = 30;
+    const darkMat = new StandardMaterial('hubDark', scene);
+    darkMat.diffuseColor = new Color3(0.055, 0.07, 0.09);
+    darkMat.specularColor = new Color3(0.12, 0.14, 0.16);
 
-      [-8.2, 8.2].forEach((z, i) => {
-        const tower = MeshBuilder.CreateBox(`btow-${side}${i}`, { width: 3.6, height: 7.4, depth: 3.6 }, this.scene);
-        tower.position.set(0, 3.7, z);
-        tower.material = wallMat;
-        tower.parent = root;
-        const win = MeshBuilder.CreateBox(`bwin-${side}${i}`, { width: 3.7, height: 0.5, depth: 3.7 }, this.scene);
-        win.position.set(0, 6.1, z);
-        win.material = this._emissiveMat(`bwinM-${side}${i}`, accent, 0.9);
-        win.parent = root;
-        this.shadowGen.addShadowCaster(tower);
-      });
-
-      const gate = MeshBuilder.CreateBox(`bgate-${side}`, { width: 3.2, height: 0.35, depth: 6 }, this.scene);
-      gate.position.set(0, 0.6, 0);
-      gate.material = this._emissiveMat(`bgateM-${side}`, accent, 0.7);
-      gate.parent = root;
-
-      const antenna = MeshBuilder.CreateCylinder(`bant-${side}`, { diameter: 0.16, height: 4.4 }, this.scene);
-      antenna.position.set(0, 9.4, 8.2);
-      antenna.material = wallMat;
-      antenna.parent = root;
-      const tip = MeshBuilder.CreateSphere(`btip-${side}`, { diameter: 0.55 }, this.scene);
-      tip.position.set(0, 11.6, 8.2);
-      tip.material = this._emissiveMat(`btipM-${side}`, accent, 1.4);
-      tip.parent = root;
-      this._blinkers = this._blinkers || [];
-      this._blinkers.push({ mat: tip.material, base: accent.clone(), speed: side === 'player' ? 2.4 : 3.1 });
-
-      this.shadowGen.addShadowCaster(wall);
-      this.bases[side] = { root, sign };
+    // chamfered platform (stacked slabs read as bevels)
+    const slab = MeshBuilder.CreateBox('hubSlab', { width: 7, height: 1.1, depth: 21 }, scene);
+    slab.position.y = 0.55;
+    slab.material = steelMat;
+    slab.parent = root;
+    const deck = MeshBuilder.CreateBox('hubDeck', { width: 6.2, height: 0.28, depth: 20.2 }, scene);
+    deck.position.y = 1.24;
+    deck.material = darkMat;
+    deck.parent = root;
+    // glowing cyan perimeter strips
+    [[0, 1.4, 10.15, 6.4, 0.06, 0.1], [0, 1.4, -10.15, 6.4, 0.06, 0.1], [3.15, 1.4, 0, 0.1, 0.06, 20.4], [-3.15, 1.4, 0, 0.1, 0.06, 20.4]].forEach(([x, y, z, w, h, d], i) => {
+      const st = MeshBuilder.CreateBox(`hubEdge${i}`, { width: w, height: h, depth: d }, scene);
+      st.position.set(x, y, z);
+      st.material = this._emissiveMat(`hubEdgeM${i}`, CYAN, 1.1);
+      st.parent = root;
     });
+
+    // crystal-energy command tower
+    const towerZ = -5.6;
+    const glassMat = new StandardMaterial('hubGlass', scene);
+    glassMat.diffuseColor = ICE.scale(0.35);
+    glassMat.emissiveColor = CYAN.scale(0.22);
+    glassMat.alpha = 0.5;
+    glassMat.specularColor = new Color3(0.6, 0.8, 1);
+    const tower = MeshBuilder.CreateCylinder('hubTower', { diameter: 2.3, height: 7.6, tessellation: 6 }, scene);
+    tower.position.set(-0.4, 5.1, towerZ);
+    tower.material = glassMat;
+    tower.parent = root;
+    const core = MeshBuilder.CreateCylinder('hubCore', { diameter: 0.85, height: 8.2, tessellation: 12 }, scene);
+    core.position.set(-0.4, 5.4, towerZ);
+    const coreMat = this._emissiveMat('hubCoreM', CYAN, 1.55);
+    core.material = coreMat;
+    core.parent = root;
+    this._blinkers.push({ mat: coreMat, base: CYAN.clone(), speed: 2.6, phase: 0.4 });
+    const cap = MeshBuilder.CreateSphere('hubCap', { diameter: 1.5, segments: 12 }, scene);
+    cap.position.set(-0.4, 9.3, towerZ);
+    cap.material = this._emissiveMat('hubCapM', ICE, 1.15);
+    cap.parent = root;
+    const antenna = MeshBuilder.CreateCylinder('hubAnt', { diameter: 0.12, height: 3.4 }, scene);
+    antenna.position.set(-0.4, 11.2, towerZ);
+    antenna.material = darkMat;
+    antenna.parent = root;
+    const tip = MeshBuilder.CreateSphere('hubTip', { diameter: 0.5 }, scene);
+    tip.position.set(-0.4, 13, towerZ);
+    const tipMat = this._emissiveMat('hubTipM', AMBER, 1.4);
+    tip.material = tipMat;
+    tip.parent = root;
+    this._blinkers.push({ mat: tipMat, base: AMBER.clone(), speed: 3.4, phase: 1.2 });
+
+    // secondary comms block
+    const block = MeshBuilder.CreateBox('hubBlock', { width: 2.6, height: 4.4, depth: 3.4 }, scene);
+    block.position.set(-0.6, 3.5, 5.8);
+    block.material = steelMat;
+    block.parent = root;
+    const dish = MeshBuilder.CreateCylinder('hubDish', { diameter: 2.2, height: 0.12, tessellation: 20 }, scene);
+    dish.position.set(-0.6, 6.1, 5.8);
+    dish.rotation.x = Math.PI / 2.4;
+    dish.material = this._emissiveMat('hubDishM', CYAN, 0.5);
+    dish.material.alpha = 0.75;
+    dish.parent = root;
+
+    // deploy ramp toward the lanes (hazard-lit)
+    const ramp = MeshBuilder.CreateBox('hubRamp', { width: 5.2, height: 0.22, depth: 5.6 }, scene);
+    ramp.position.set(3.4, 0.72, 0);
+    ramp.rotation.z = 0.27;
+    ramp.material = steelMat;
+    ramp.parent = root;
+    [-2.7, 2.7].forEach((z, i) => {
+      const hz = MeshBuilder.CreateBox(`hubHz${i}`, { width: 5.2, height: 0.05, depth: 0.16 }, scene);
+      hz.position.set(3.4, 0.86, z);
+      hz.rotation.z = 0.27;
+      hz.material = this._emissiveMat(`hubHzM${i}`, AMBER, 0.9);
+      hz.parent = root;
+    });
+
+    // partial translucent energy shield dome
+    const shield = MeshBuilder.CreateSphere('hubShield', { diameter: 21, segments: 24 }, scene);
+    shield.position.set(0, 1.1, 0);
+    shield.scaling.y = 0.55;
+    const shMat = this._emissiveMat('hubShieldM', CYAN, 0.4);
+    shMat.alpha = 0.075;
+    shield.material = shMat;
+    shield.parent = root;
+    const shRing = MeshBuilder.CreateTorus('hubShieldRing', { diameter: 21, tube: 0.07, tessellation: 60 }, scene);
+    shRing.position.y = 1.1;
+    const srMat = this._emissiveMat('hubRingM', CYAN, 0.9);
+    srMat.alpha = 0.55;
+    shRing.material = srMat;
+    shRing.parent = root;
+
+    // holographic BASE HUB label
+    this._holoLabel(root, 'BASE HUB', new Vector3(2.2, 8.4, 1.5), CYAN, 7.4);
+
+    this.shadowGen.addShadowCaster(slab);
+    this.shadowGen.addShadowCaster(tower);
+    this.shadowGen.addShadowCaster(block);
+    this.bases.player = { root, sign: -1 };
+  }
+
+  /* ---- ENEMY: hostile alien monolith (carbon + purple/red core) ---- */
+  _buildAlienFortress() {
+    const scene = this.scene;
+    const root = new TransformNode('base-enemy', scene);
+    root.position.x = 33;
+
+    const carbonMat = new StandardMaterial('fortCarbon', scene);
+    carbonMat.diffuseColor = CARBON.clone();
+    carbonMat.specularColor = new Color3(0.16, 0.1, 0.2);
+    carbonMat.specularPower = 18;
+    const plateMat = new StandardMaterial('fortPlate', scene);
+    plateMat.diffuseColor = new Color3(0.09, 0.06, 0.08);
+    plateMat.specularColor = new Color3(0.2, 0.1, 0.16);
+
+    // base mound + angular monolith stack
+    const mound = MeshBuilder.CreateBox('fortMound', { width: 8, height: 2.2, depth: 23 }, scene);
+    mound.position.y = 1.1;
+    mound.material = carbonMat;
+    mound.parent = root;
+    const mono1 = MeshBuilder.CreateBox('fortMono1', { width: 5.2, height: 12.5, depth: 9.5 }, scene);
+    mono1.position.set(-0.4, 8.4, 0);
+    mono1.rotation.y = 0.16;
+    mono1.material = carbonMat;
+    mono1.parent = root;
+    const mono2 = MeshBuilder.CreateBox('fortMono2', { width: 3.4, height: 6.6, depth: 6 }, scene);
+    mono2.position.set(-0.8, 17.6, 0);
+    mono2.rotation.y = -0.28;
+    mono2.material = plateMat;
+    mono2.parent = root;
+    [[-6.6, 0.3], [6.6, -0.34]].forEach(([z, ry], i) => {
+      const wing = MeshBuilder.CreateBox(`fortWing${i}`, { width: 2.6, height: 8.4, depth: 4.4 }, scene);
+      wing.position.set(0.2, 6.2, z);
+      wing.rotation.y = ry;
+      wing.material = plateMat;
+      wing.parent = root;
+      this.shadowGen.addShadowCaster(wing);
+    });
+
+    // exposed violet energy core (front face, facing the lanes)
+    const core = MeshBuilder.CreateBox('fortCore', { width: 1.5, height: 6.4, depth: 1.5 }, scene);
+    core.position.set(-3.1, 8.6, 0);
+    core.rotation.y = 0.16;
+    const coreMat = this._emissiveMat('fortCoreM', PURPLE, 1.7);
+    core.material = coreMat;
+    core.parent = root;
+    this._blinkers.push({ mat: coreMat, base: PURPLE.clone(), speed: 2.1, phase: 0 });
+    const coreGlow = MeshBuilder.CreateSphere('fortCoreGlow', { diameter: 3.1, segments: 14 }, scene);
+    coreGlow.position.set(-3.1, 8.6, 0);
+    const cgMat = this._emissiveMat('fortGlowM', PURPLE, 0.9);
+    cgMat.alpha = 0.3;
+    coreGlow.material = cgMat;
+    coreGlow.parent = root;
+
+    // magma vents between armor plates (front face)
+    [[4.4, 7.8], [9.4, 7.8], [14.4, 5.4]].forEach(([y, d], i) => {
+      const vent = MeshBuilder.CreateBox(`fortVent${i}`, { width: 0.14, height: 0.5, depth: d }, scene);
+      vent.position.set(-2.95, y, 0);
+      const vm = this._emissiveMat(`fortVentM${i}`, MAGMA, 1.25);
+      vm.alpha = 0.9;
+      vent.material = vm;
+      vent.parent = root;
+      this._blinkers.push({ mat: vm, base: MAGMA.clone(), speed: 1.5 + i * 0.3, phase: i * 1.7 });
+    });
+
+    // red warning light rows
+    for (let i = 0; i < 6; i++) {
+      const lamp = MeshBuilder.CreateSphere(`fortLamp${i}`, { diameter: 0.34 }, scene);
+      lamp.position.set(-2.75, 3.4 + i * 2.6, (i % 2 ? 1 : -1) * (2.4 + (i % 3)));
+      const lm = this._emissiveMat(`fortLampM${i}`, RED, 1.5);
+      lamp.material = lm;
+      lamp.parent = root;
+      this._blinkers.push({ mat: lm, base: RED.clone(), speed: 3.6, phase: i * 1.1 });
+    }
+
+    // anti-orbital turrets on the crown
+    [-2.4, 2.4].forEach((z, i) => {
+      const tb = MeshBuilder.CreateCylinder(`fortTurret${i}`, { diameter: 1.3, height: 1.1, tessellation: 10 }, scene);
+      tb.position.set(-0.4, 21.4, z * 0.7);
+      tb.material = carbonMat;
+      tb.parent = root;
+      const bar = MeshBuilder.CreateCylinder(`fortTBar${i}`, { diameter: 0.2, height: 2.6 }, scene);
+      bar.rotation.x = Math.PI / 2;
+      bar.position.set(-1.5, 21.7, z * 0.7);
+      bar.material = plateMat;
+      bar.parent = root;
+      const tl = MeshBuilder.CreateSphere(`fortTLamp${i}`, { diameter: 0.3 }, scene);
+      tl.position.set(-0.4, 22.15, z * 0.7);
+      const tlm = this._emissiveMat(`fortTLM${i}`, RED, 1.6);
+      tl.material = tlm;
+      tl.parent = root;
+      this._blinkers.push({ mat: tlm, base: RED.clone(), speed: 4.2, phase: i * 2.2 });
+    });
+
+    // reddish defensive shield
+    const shield = MeshBuilder.CreateSphere('fortShield', { diameter: 25, segments: 24 }, scene);
+    shield.position.y = 1.4;
+    shield.scaling.y = 0.62;
+    const shMat = this._emissiveMat('fortShieldM', new Color3(0.75, 0.12, 0.4), 0.45);
+    shMat.alpha = 0.065;
+    shield.material = shMat;
+    shield.parent = root;
+
+    // small dart ships circling the battlements
+    [-1, 1].forEach((dir, i) => {
+      const ship = new TransformNode(`dartShip${i}`, scene);
+      ship.position.set(-4.5, 13.5 + i * 2.4, dir * 7.5);
+      ship.parent = root;
+      const hull = MeshBuilder.CreateBox(`dartHull${i}`, { width: 1.7, height: 0.34, depth: 0.8 }, scene);
+      hull.material = carbonMat;
+      hull.parent = ship;
+      const eng = MeshBuilder.CreateBox(`dartEng${i}`, { width: 0.2, height: 0.2, depth: 0.5 }, scene);
+      eng.position.x = 0.95;
+      eng.material = this._emissiveMat(`dartEngM${i}`, RED, 1.7);
+      eng.parent = ship;
+      this.floaters.push({ mesh: ship, baseY: ship.position.y, amp: 0.55, speed: 1.4 + i * 0.5, phase: i * 2.4, parent: root });
+    });
+
+    // holo threat label
+    this._holoLabel(root, 'XENO STRONGHOLD', new Vector3(-2.4, 24.6, 0), RED, 8.6);
+
+    this.shadowGen.addShadowCaster(mound);
+    this.shadowGen.addShadowCaster(mono1);
+    this.shadowGen.addShadowCaster(mono2);
+    this.bases.enemy = { root, sign: 1 };
+  }
+
+  /* floating holographic text label (military monospace) */
+  _holoLabel(parent, text, pos, color, width) {
+    const scene = this.scene;
+    const tex = new DynamicTexture(`holoTex${text.replace(/\s/g, '')}`, { width: 512, height: 96 }, scene, false);
+    tex.hasAlpha = true;
+    const ctx = tex.getContext();
+    ctx.clearRect(0, 0, 512, 96);
+    ctx.font = '700 54px "Share Tech Mono", Consolas, monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const css = `rgb(${Math.round(color.r * 255)},${Math.round(color.g * 255)},${Math.round(color.b * 255)})`;
+    ctx.shadowColor = css;
+    ctx.shadowBlur = 22;
+    ctx.fillStyle = css;
+    ctx.fillText(text, 256, 50);
+    ctx.shadowBlur = 0;
+    ctx.fillText(text, 256, 50);
+    tex.update();
+    const mat = new StandardMaterial(`holoMat${text.replace(/\s/g, '')}`, scene);
+    mat.emissiveTexture = tex;
+    mat.diffuseColor = Color3.Black();
+    mat.emissiveColor = new Color3(1, 1, 1);
+    mat.useAlphaFromDiffuseTexture = false;
+    mat.backFaceCulling = false;
+    mat.disableLighting = true;
+    const plane = MeshBuilder.CreatePlane(`holoPlane${text.replace(/\s/g, '')}`, { width, height: width * (96 / 512) }, scene);
+    plane.position.copyFrom(pos);
+    plane.rotation.y = Math.PI / 2;
+    plane.material = mat;
+    plane.parent = parent;
+    this.floaters.push({ mesh: plane, baseY: pos.y, amp: 0.16, speed: 1.1, phase: pos.z, parent });
+    return plane;
+  }
+
+  /* reddish smoke column over the alien fortress */
+  _buildEnemySmoke() {
+    if (!this.softTex) return;
+    const smoke = new ParticleSystem('enemySmoke', 120, this.scene);
+    smoke.particleTexture = this.softTex;
+    smoke.emitter = new Vector3(33, 9, 0);
+    smoke.minEmitBox = new Vector3(-2.5, 0, -2.5);
+    smoke.maxEmitBox = new Vector3(2.5, 6, 2.5);
+    smoke.direction1 = new Vector3(-0.12, 0.5, -0.1);
+    smoke.direction2 = new Vector3(0.12, 0.9, 0.1);
+    smoke.minEmitPower = 0.25;
+    smoke.maxEmitPower = 0.6;
+    smoke.minLifeTime = 3.2;
+    smoke.maxLifeTime = 5.5;
+    smoke.minSize = 1.1;
+    smoke.maxSize = 2.6;
+    smoke.color1 = new Color4(0.32, 0.08, 0.07, 0.16);
+    smoke.color2 = new Color4(0.12, 0.04, 0.05, 0.0);
+    smoke.blendMode = ParticleSystem.BLENDMODE_STANDARD;
+    smoke.emitRate = 9;
+    smoke.start();
+    this.smoke = smoke;
+    this.smokeRunning = true;
   }
 
   _buildProps() {
     this.props = new TransformNode('props', this.scene);
     const crateMat = new StandardMaterial('crate', this.scene);
-    crateMat.diffuseColor = new Color3(0.13, 0.17, 0.14);
-    crateMat.specularColor = new Color3(0.05, 0.05, 0.05);
+    crateMat.diffuseColor = STEEL.clone();
+    crateMat.specularColor = new Color3(0.1, 0.12, 0.14);
+    const crateMatE = new StandardMaterial('crateE', this.scene);
+    crateMatE.diffuseColor = new Color3(0.07, 0.06, 0.05);
+    crateMatE.specularColor = new Color3(0.06, 0.05, 0.04);
 
     [[-14, -8, 1.6], [-11.5, -7, 1.1], [-13, -5.5, 0.9], [12, 9, 1.4], [14.5, 8, 1], [10, 10.4, 0.8], [-4, 12, 1.2], [6, -12, 1.5]].forEach(([x, z, s], i) => {
       const c = MeshBuilder.CreateBox(`crate${i}`, { size: s }, this.scene);
       c.position.set(x, s / 2, z);
       c.rotation.y = Math.random() * 0.9;
-      c.material = crateMat;
+      c.material = i % 2 ? crateMatE : crateMat;
       c.parent = this.props;
       this.shadowGen.addShadowCaster(c);
+      // cyan supply marking on player-side crates
+      if (x < 0 && i % 2 === 0) {
+        const mark = MeshBuilder.CreateBox(`crateMark${i}`, { width: s * 1.02, height: s * 0.14, depth: s * 1.02 }, this.scene);
+        mark.position.set(x, s * 0.72, z);
+        mark.rotation.y = c.rotation.y;
+        const mm = this._emissiveMat(`crateMarkM${i}`, i % 4 ? CYAN : AMBER, 0.5);
+        mm.alpha = 0.5;
+        mark.material = mm;
+        mark.parent = this.props;
+      }
     });
 
     // radar tower
@@ -452,65 +955,171 @@ export default class SceneController {
   /* ---------------- units ---------------- */
   addUnitMesh(def, side, x, z) {
     const s = def.size || 1;
-    const root = new TransformNode(`u-${def.id}-${Math.random().toString(36).slice(2, 7)}`, this.scene);
+    const scene = this.scene;
+    const root = new TransformNode(`u-${def.id}-${Math.random().toString(36).slice(2, 7)}`, scene);
     root.position.set(x, 0, z);
     root.rotation.y = side === 'player' ? Math.PI / 2 : -Math.PI / 2;
 
     if (!this._bodyMats) {
-      const mp = new StandardMaterial('bodyP', this.scene);
-      mp.diffuseColor = new Color3(0.09, 0.15, 0.2);
-      mp.specularColor = new Color3(0.15, 0.2, 0.25);
-      const me = new StandardMaterial('bodyE', this.scene);
-      me.diffuseColor = new Color3(0.2, 0.1, 0.07);
-      me.specularColor = new Color3(0.2, 0.1, 0.1);
-      this._bodyMats = { player: mp, enemy: me };
+      const mp = new StandardMaterial('bodyP', scene);   // human tactical steel-blue
+      mp.diffuseColor = new Color3(0.1, 0.14, 0.19);
+      mp.specularColor = new Color3(0.2, 0.26, 0.32);
+      mp.specularPower = 26;
+      const mpDark = new StandardMaterial('bodyPD', scene);
+      mpDark.diffuseColor = new Color3(0.05, 0.07, 0.1);
+      mpDark.specularColor = new Color3(0.1, 0.12, 0.15);
+      const me = new StandardMaterial('bodyE', scene);   // alien bio-metal carbon
+      me.diffuseColor = new Color3(0.05, 0.045, 0.06);
+      me.specularColor = new Color3(0.22, 0.1, 0.24);
+      me.specularPower = 20;
+      const meDark = new StandardMaterial('bodyED', scene);
+      meDark.diffuseColor = new Color3(0.09, 0.05, 0.06);
+      meDark.specularColor = new Color3(0.16, 0.08, 0.1);
+      this._bodyMats = { player: mp, playerDark: mpDark, enemy: me, enemyDark: meDark };
     }
     const bodyMat = this._bodyMats[side];
+    const darkMat = this._bodyMats[side === 'player' ? 'playerDark' : 'enemyDark'];
     const accent = side === 'player' ? CYAN : RED;
+    const alien = side === 'enemy';
 
-    const bw = 1.35 * s, bh = 0.85 * s, bd = 2.1 * s;
-    const body = MeshBuilder.CreateBox('body', { width: bw, height: bh, depth: bd }, this.scene);
-    body.position.y = bh / 2 + 0.06;
-    body.material = bodyMat;
-    body.parent = root;
+    let barY = 2.3 * s;
+    let stripeMat = null;
+    let mainMesh = null;
 
-    const stripe = MeshBuilder.CreateBox('stripe', { width: bw + 0.04, height: 0.14 * s, depth: bd * 0.55 }, this.scene);
-    stripe.position.y = bh + 0.02;
-    const stripeMat = this._emissiveMat(`stripeM${root.uniqueId}`, accent, 0.85);
-    stripe.material = stripeMat;
-    stripe.parent = root;
-
-    const turret = MeshBuilder.CreateBox('turret', { width: bw * 0.62, height: 0.4 * s, depth: bd * 0.5 }, this.scene);
-    turret.position.y = bh + 0.26 * s;
-    turret.material = bodyMat;
-    turret.parent = root;
-
-    const barrelLen = def.id === 'artillery' ? 1.9 * s : def.id === 'tank' ? 1.5 * s : 1.0 * s;
-    const barrel = MeshBuilder.CreateCylinder('barrel', { diameter: 0.14 * s, height: barrelLen }, this.scene);
-    barrel.rotation.x = Math.PI / 2;
-    if (def.id === 'artillery') barrel.rotation.x = Math.PI / 2 - 0.5;
-    barrel.position.set(0, bh + 0.3 * s, bd * 0.3 + barrelLen / 2 - 0.15);
-    barrel.material = bodyMat;
-    barrel.parent = root;
+    if (def.id === 'tank') {
+      /* armored tank: tracks + hull + turret + barrel */
+      [-0.72, 0.72].forEach((ox, i) => {
+        const track = MeshBuilder.CreateBox(`trk${i}`, { width: 0.44 * s, height: 0.5 * s, depth: 2.5 * s }, scene);
+        track.position.set(ox * s, 0.25 * s, 0);
+        track.material = darkMat;
+        track.parent = root;
+      });
+      const hull = MeshBuilder.CreateBox('hull', { width: 1.5 * s, height: 0.62 * s, depth: 2.5 * s }, scene);
+      hull.position.y = 0.72 * s;
+      hull.material = bodyMat;
+      hull.parent = root;
+      mainMesh = hull;
+      const turret = MeshBuilder.CreateBox('turret', { width: 1.0 * s, height: 0.5 * s, depth: 1.3 * s }, scene);
+      turret.position.y = 1.28 * s;
+      turret.material = bodyMat;
+      turret.parent = root;
+      const slit = MeshBuilder.CreateBox('slit', { width: 0.7 * s, height: 0.1 * s, depth: 0.06 }, scene);
+      slit.position.set(0, 1.3 * s, 0.66 * s);
+      stripeMat = this._emissiveMat(`stripeM${root.uniqueId}`, accent, 1.2);
+      slit.material = stripeMat;
+      slit.parent = root;
+      const barrel = MeshBuilder.CreateCylinder('barrel', { diameter: 0.15 * s, height: 1.7 * s }, scene);
+      barrel.rotation.x = Math.PI / 2;
+      barrel.position.set(0, 1.3 * s, 1.4 * s);
+      barrel.material = darkMat;
+      barrel.parent = root;
+      this.shadowGen.addShadowCaster(hull);
+      this.shadowGen.addShadowCaster(turret);
+      barY = 2.15 * s;
+    } else if (def.id === 'artillery') {
+      /* artillery: chassis + cab + elevated long barrel */
+      const chassis = MeshBuilder.CreateBox('chassis', { width: 1.4 * s, height: 0.5 * s, depth: 2.4 * s }, scene);
+      chassis.position.y = 0.45 * s;
+      chassis.material = bodyMat;
+      chassis.parent = root;
+      mainMesh = chassis;
+      const cab = MeshBuilder.CreateBox('cab', { width: 1.2 * s, height: 0.62 * s, depth: 0.9 * s }, scene);
+      cab.position.set(0, 1.0 * s, -0.65 * s);
+      cab.material = darkMat;
+      cab.parent = root;
+      const stripe = MeshBuilder.CreateBox('stripe', { width: 1.24 * s, height: 0.1 * s, depth: 0.94 * s }, scene);
+      stripe.position.set(0, 1.34 * s, -0.65 * s);
+      stripeMat = this._emissiveMat(`stripeM${root.uniqueId}`, accent, 0.9);
+      stripe.material = stripeMat;
+      stripe.parent = root;
+      const barrel = MeshBuilder.CreateCylinder('barrel', { diameter: 0.17 * s, height: 2.3 * s }, scene);
+      barrel.rotation.x = Math.PI / 2 - 0.52;
+      barrel.position.set(0, 1.35 * s, 0.75 * s);
+      barrel.material = darkMat;
+      barrel.parent = root;
+      const brace = MeshBuilder.CreateBox('brace', { width: 0.5 * s, height: 0.5 * s, depth: 0.4 * s }, scene);
+      brace.position.set(0, 0.95 * s, 0.3 * s);
+      brace.material = bodyMat;
+      brace.parent = root;
+      this.shadowGen.addShadowCaster(chassis);
+      this.shadowGen.addShadowCaster(cab);
+      barY = 2.3 * s;
+    } else {
+      /* infantry: legs + torso + shoulders + helmet with visor + weapon */
+      const heavy = def.id === 'gunner';
+      const legs = MeshBuilder.CreateBox('legs', { width: 0.52 * s, height: 0.55 * s, depth: 0.42 * s }, scene);
+      legs.position.y = 0.28 * s;
+      legs.material = darkMat;
+      legs.parent = root;
+      const torso = MeshBuilder.CreateBox('torso', { width: (heavy ? 0.86 : 0.72) * s, height: 0.68 * s, depth: 0.46 * s }, scene);
+      torso.position.y = 0.9 * s;
+      torso.material = bodyMat;
+      torso.parent = root;
+      mainMesh = torso;
+      const shoulders = MeshBuilder.CreateBox('shoulders', { width: (heavy ? 1.05 : 0.92) * s, height: 0.2 * s, depth: 0.52 * s }, scene);
+      shoulders.position.y = 1.3 * s;
+      shoulders.material = bodyMat;
+      shoulders.parent = root;
+      const helmet = MeshBuilder.CreateBox('helmet', { width: 0.44 * s, height: 0.4 * s, depth: 0.46 * s }, scene);
+      helmet.position.y = 1.62 * s;
+      helmet.material = darkMat;
+      helmet.parent = root;
+      const visor = MeshBuilder.CreateBox('visor', { width: 0.46 * s, height: 0.1 * s, depth: 0.06 }, scene);
+      visor.position.set(0, 1.64 * s, 0.24 * s);
+      const visorMat = this._emissiveMat(`visorM${root.uniqueId}`, alien ? RED : CYAN, 1.5);
+      visor.material = visorMat;
+      visor.parent = root;
+      // chest stripe (upgrade feedback + faction accent)
+      const stripe = MeshBuilder.CreateBox('stripe', { width: (heavy ? 0.9 : 0.76) * s, height: 0.09 * s, depth: 0.48 * s }, scene);
+      stripe.position.y = 1.12 * s;
+      stripeMat = this._emissiveMat(`stripeM${root.uniqueId}`, accent, 0.75);
+      stripe.material = stripeMat;
+      stripe.parent = root;
+      // weapon facing +z (advance direction)
+      const gun = MeshBuilder.CreateCylinder('gun', { diameter: (heavy ? 0.16 : 0.09) * s, height: (heavy ? 1.15 : 0.95) * s }, scene);
+      gun.rotation.x = Math.PI / 2;
+      gun.position.set(0.24 * s, 1.0 * s, 0.62 * s);
+      gun.material = darkMat;
+      gun.parent = root;
+      if (alien) {
+        // non-human anatomy: dorsal spikes with violet bio-lights
+        [-0.16, 0.16].forEach((ox, i) => {
+          const spike = MeshBuilder.CreateCylinder(`spk${i}`, { diameterTop: 0, diameterBottom: 0.14 * s, height: 0.6 * s, tessellation: 5 }, scene);
+          spike.position.set(ox * s, 1.5 * s + i * 0.18, -0.3 * s);
+          spike.rotation.x = -0.5;
+          spike.material = bodyMat;
+          spike.parent = root;
+        });
+        const node = MeshBuilder.CreateSphere('bnode', { diameter: 0.16 * s }, scene);
+        node.position.set(0, 1.86 * s, -0.34 * s);
+        const nm = this._emissiveMat(`bnodeM${root.uniqueId}`, PURPLE, 1.6);
+        node.material = nm;
+        node.parent = root;
+        this._blinkers.push({ mat: nm, base: PURPLE.clone(), speed: 3.2, phase: Math.random() * 4 });
+      } else if (heavy) {
+        const pack = MeshBuilder.CreateBox('pack', { width: 0.6 * s, height: 0.5 * s, depth: 0.3 * s }, scene);
+        pack.position.set(0, 1.05 * s, -0.36 * s);
+        pack.material = darkMat;
+        pack.parent = root;
+      }
+      this.shadowGen.addShadowCaster(torso);
+      barY = 2.25 * s;
+    }
 
     // hp bar
-    const barY = bh + 0.95 * s + 0.35;
-    const hpBg = MeshBuilder.CreateBox('hpbg', { width: 1.7, height: 0.13, depth: 0.05 }, this.scene);
+    const hpBg = MeshBuilder.CreateBox('hpbg', { width: 1.7, height: 0.13, depth: 0.05 }, scene);
     hpBg.position.set(0, barY, 0);
-    const bgMat = new StandardMaterial('hpbgM', this.scene);
+    const bgMat = new StandardMaterial('hpbgM', scene);
     bgMat.diffuseColor = new Color3(0.02, 0.03, 0.05);
     bgMat.emissiveColor = new Color3(0.03, 0.05, 0.08);
     hpBg.material = bgMat;
     hpBg.parent = root;
 
-    const hpFg = MeshBuilder.CreateBox('hpfg', { width: 1.7, height: 0.13, depth: 0.07 }, this.scene);
+    const hpFg = MeshBuilder.CreateBox('hpfg', { width: 1.7, height: 0.13, depth: 0.07 }, scene);
     hpFg.position.set(0, barY, -0.012);
     const fgMat = this._emissiveMat(`hpM${root.uniqueId}`, HP_GREEN, 0.9);
     hpFg.material = fgMat;
     hpFg.parent = root;
-
-    this.shadowGen.addShadowCaster(body);
-    this.shadowGen.addShadowCaster(turret);
 
     const handle = { root, hpFg, hpMat: fgMat, stripeMat, def, side, id: root.uniqueId, tx: x, tz: z, lerp: 9 };
     this.units.push(handle);
@@ -769,18 +1378,33 @@ export default class SceneController {
   explode(pos, power = 1, hue = 'amber') {
     const color = hue === 'red' ? RED : hue === 'cyan' ? CYAN : AMBER;
 
+    // white-hot flash core
+    const flash = MeshBuilder.CreateSphere('expFlash', { diameter: 1 }, this.scene);
+    flash.position.set(pos.x, pos.y + 0.2, pos.z);
+    flash.material = this._emissiveMat(`expFM${flash.uniqueId}`, new Color3(1, 0.97, 0.9), 2.2);
+    this.fx.push({ kind: 'grow', mesh: flash, age: 0, ttl: 0.12, from: 0.2, to: 1.5 * power });
+
     const core = MeshBuilder.CreateSphere('expCore', { diameter: 1 }, this.scene);
     core.position.copyFrom(pos);
     core.material = this._emissiveMat(`expM${core.uniqueId}`, color, 1.5);
     this.fx.push({ kind: 'grow', mesh: core, age: 0, ttl: 0.3, from: 0.3, to: 2.6 * power });
+
+    // magma fire ring (Visual Bible: explosions with rings of fire)
+    const fire = MeshBuilder.CreateTorus('expFire', { diameter: 1, tube: 0.16, tessellation: 36 }, this.scene);
+    fire.position.set(pos.x, 0.3, pos.z);
+    fire.material = this._emissiveMat(`expFiM${fire.uniqueId}`, MAGMA, 1.7);
+    this.fx.push({ kind: 'growFlat', mesh: fire, age: 0, ttl: 0.3, from: 0.4, to: 2.9 * power });
 
     const ring = MeshBuilder.CreateTorus('expRing', { diameter: 1, tube: 0.055, tessellation: 40 }, this.scene);
     ring.position.set(pos.x, 0.16, pos.z);
     ring.material = this._emissiveMat(`expRM${ring.uniqueId}`, hue === 'cyan' ? CYAN : AMBER, 1.1);
     this.fx.push({ kind: 'growFlat', mesh: ring, age: 0, ttl: 0.42, from: 0.6, to: 3.6 * power });
 
-    if (this.particlesOn) {
-      const n = Math.min(10, 4 + Math.round(power * 2));
+    this.smokePuff({ x: pos.x, y: pos.y + 0.4, z: pos.z });
+
+    if (this.particlesOn && this.goreLevel !== 'NONE') {
+      const goreMult = this.goreLevel === 'EXTREME' ? 1.8 : 1;
+      const n = Math.min(14, Math.round((4 + power * 2) * goreMult));
       for (let i = 0; i < n; i++) {
         const d = MeshBuilder.CreateBox('deb', { size: 0.16 + Math.random() * 0.12 }, this.scene);
         d.position.copyFrom(pos);
@@ -792,6 +1416,23 @@ export default class SceneController {
           spin: new Vector3(Math.random() * 8, Math.random() * 8, Math.random() * 8)
         });
       }
+      // EXTREME gore: red bio-splatter shards
+      if (this.goreLevel === 'EXTREME') {
+        for (let g = 0; g < 5; g++) {
+          const sp = MeshBuilder.CreateBox('splat', { size: 0.13 + Math.random() * 0.1 }, this.scene);
+          sp.position.set(pos.x, pos.y + 0.4, pos.z);
+          sp.material = this._emissiveMat(`splatM${sp.uniqueId}`, RED, 0.9);
+          this.fx.push({
+            kind: 'debris', mesh: sp, age: 0, ttl: 0.55,
+            vel: new Vector3((Math.random() - 0.5) * 8, 2 + Math.random() * 4, (Math.random() - 0.5) * 8),
+            spin: new Vector3(Math.random() * 10, Math.random() * 10, Math.random() * 10)
+          });
+        }
+      }
+    }
+
+    // dynamic explosion light (independent of gore level)
+    if (this.particlesOn) {
       const lights = this.fx.filter((f) => f.kind === 'light').length;
       if (lights < 2) {
         const pl = new PointLight('expL', new Vector3(pos.x, pos.y + 1.2, pos.z), this.scene);
@@ -804,12 +1445,19 @@ export default class SceneController {
   }
 
   airstrikeFX(pos) {
+    // white-cyan orbital lance (Visual Bible spec)
     const beam = MeshBuilder.CreateCylinder('beam', { diameter: 3.4, height: 34, tessellation: 20 }, this.scene);
     beam.position.set(pos.x, 17, pos.z);
-    const bm = this._emissiveMat(`beamM${beam.uniqueId}`, CYAN, 1.2);
-    bm.alpha = 0.22;
+    const bm = this._emissiveMat(`beamM${beam.uniqueId}`, new Color3(0.62, 0.95, 1.0), 1.6);
+    bm.alpha = 0.26;
     beam.material = bm;
     this.fx.push({ kind: 'beam', mesh: beam, age: 0, ttl: 0.5 });
+    const beamCore = MeshBuilder.CreateCylinder('beamCore', { diameter: 1.1, height: 34, tessellation: 14 }, this.scene);
+    beamCore.position.set(pos.x, 17, pos.z);
+    const bcm = this._emissiveMat(`beamCM${beamCore.uniqueId}`, new Color3(0.9, 1, 1), 2.0);
+    bcm.alpha = 0.5;
+    beamCore.material = bcm;
+    this.fx.push({ kind: 'beam', mesh: beamCore, age: 0, ttl: 0.4 });
 
     this.pending.push({ t: 0.12, fn: () => this.explode(pos, 2.6) });
     this.pending.push({ t: 0.24, fn: () => this.explode(pos.add(new Vector3(1.8, 0, 1.2)), 1.7) });
@@ -844,6 +1492,11 @@ export default class SceneController {
   shake(amount = 1) {
     if (document.body.classList.contains('no-shake')) return;
     this.shakeAmp = Math.min(1.4, (this.shakeAmp || 0) + 0.35 * amount);
+  }
+
+  /** Impact FX level: NONE | NORMAL | EXTREME (gore/debris density). */
+  setGore(level) {
+    this.goreLevel = ['NONE', 'NORMAL', 'EXTREME'].includes(level) ? level : 'NORMAL';
   }
 
   project(v) {
@@ -1113,6 +1766,11 @@ export default class SceneController {
       if (cfg.particles && !this.dustRunning) { this.dust.start(); this.dustRunning = true; }
       if (!cfg.particles && this.dustRunning) { this.dust.stop(); this.dustRunning = false; }
     }
+    if (this.smoke) {
+      if (cfg.particles && !this.smokeRunning) { this.smoke.start(); this.smokeRunning = true; }
+      if (!cfg.particles && this.smokeRunning) { this.smoke.stop(); this.smokeRunning = false; }
+    }
+    if (cfg.gore) this.setGore(cfg.gore);
   }
 
   /* ---------------- frame loop ---------------- */
@@ -1165,6 +1823,18 @@ export default class SceneController {
     if (this.deployArrow && this.deployArrow.isVisible) {
       this.deployArrow.position.y = 0.35 + Math.sin(t * 3.2) * 0.12;
       this.deployArrowMat.emissiveColor = AMBER.scale(0.95 + 0.35 * Math.sin(t * 3.2));
+    }
+
+    // blinking energy lights (fortress core, warning lamps, drives…)
+    for (let i = 0; i < this._blinkers.length; i++) {
+      const b = this._blinkers[i];
+      b.mat.emissiveColor = b.base.scale(0.55 + 0.45 * Math.sin(t * b.speed + (b.phase || 0)));
+    }
+
+    // floating elements (holo labels, dart ships, capital ships)
+    for (let i = 0; i < this.floaters.length; i++) {
+      const f = this.floaters[i];
+      f.mesh.position.y = f.baseY + Math.sin(t * f.speed + f.phase) * f.amp;
     }
 
     // pending scheduled fx

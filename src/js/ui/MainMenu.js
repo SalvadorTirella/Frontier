@@ -52,14 +52,20 @@ export default class MainMenu {
             <span class="m-lbl">SETTINGS & OPTIMIZER<small>GRAPHICS · AUDIO · DISPLAY</small></span>
             <span class="m-arrow">›</span>
           </button>
-          <button class="menu-btn" data-action="manual" data-anim>
+          <button class="menu-btn" data-action="artbible" data-anim>
             <span class="idx mono">03</span>
+            <span class="m-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 5h18v11H3z" stroke-linejoin="round"/><path d="M8 21h8M12 16v5" stroke-linecap="round"/><path d="M6.5 12.5 10 9l2.5 2.5L17 7.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+            <span class="m-lbl">VISUAL BIBLE<small>ART DIRECTION · PALETA · KEYFRAMES</small></span>
+            <span class="m-arrow">›</span>
+          </button>
+          <button class="menu-btn" data-action="manual" data-anim>
+            <span class="idx mono">04</span>
             <span class="m-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/><path d="M9 8.5h6M9 12h6" stroke-linecap="round"/></svg></span>
             <span class="m-lbl">FIELD MANUAL<small>CONTROLS & DOCTRINE</small></span>
             <span class="m-arrow">›</span>
           </button>
           <button class="menu-btn danger" data-action="reset" data-anim>
-            <span class="idx mono">04</span>
+            <span class="idx mono">05</span>
             <span class="m-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16M9.5 7V4.8h5V7M6.5 7l1 13h9l1-13" stroke-linecap="round"/></svg></span>
             <span class="m-lbl">PURGE SAVE DATA<small>WIPE LOCAL RECORDS</small></span>
             <span class="m-arrow">›</span>
@@ -118,6 +124,9 @@ export default class MainMenu {
         break;
       case 'settings':
         EventBus.emit('settings:open', { from: 'main-menu' });
+        break;
+      case 'artbible':
+        EventBus.emit('artbible:open');
         break;
       case 'manual':
         modalManager.open({

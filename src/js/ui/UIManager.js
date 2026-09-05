@@ -11,6 +11,7 @@ import MainMenu from './MainMenu.js';
 import PauseMenu from './PauseMenu.js';
 import SettingsMenu from './SettingsMenu.js';
 import BattleScreen from './BattleScreen.js';
+import ArtBible from './ArtBible.js';
 import SceneController from '../render/SceneController.js';
 import AudioFX from '../utils/AudioUtils.js';
 import { make, on, setTxt, rand } from '../utils/DOMUtils.js';
@@ -29,7 +30,7 @@ const UIManager = {
     this.screens = new ScreenManager();
     const defs = [
       ['loading', false], ['main-menu', false], ['battle', false],
-      ['pause', true], ['settings', true], ['results', false]
+      ['pause', true], ['settings', true], ['results', false], ['art-bible', true]
     ];
     this.els = {};
     defs.forEach(([id, overlay]) => {
@@ -69,6 +70,8 @@ const UIManager = {
     this.pauseMenu.init(this.els['pause'], this.ctx);
     this.settingsMenu = new SettingsMenu();
     this.settingsMenu.init(this.els['settings'], this.ctx);
+    this.artBible = new ArtBible();
+    this.artBible.init(this.els['art-bible']);
     this.battle = new BattleScreen();
     this.battle.init(this.els['battle'], this.ctx);
     this.ctx.battle = this.battle;
@@ -271,6 +274,9 @@ const UIManager = {
       this._autoPaused = false;
     });
 
+    EventBus.on('artbible:open', () => S.show('art-bible'));
+    EventBus.on('artbible:close', () => { if (S.is('art-bible')) S.back(); });
+
     EventBus.on('battle:end', (stats) => this._showResults(stats));
 
     EventBus.on('quality:changed', ({ config, auto }) => {
@@ -292,7 +298,7 @@ const UIManager = {
     });
 
     EventBus.on('screen:changed', ({ id, stack }) => {
-      this.stage.classList.toggle('ambience-on', id === 'main-menu' || id === 'loading' || id === 'results');
+      this.stage.classList.toggle('ambience-on', id === 'main-menu' || id === 'loading' || id === 'results' || id === 'art-bible');
       this.stage.classList.toggle('battle-cursor', stack && stack[0] === 'battle');
     });
   },
@@ -317,13 +323,14 @@ const UIManager = {
       if (e.code === 'Escape' || e.code === 'KeyP') {
         if (this.uiLayer.querySelector('.modal-backdrop')) return;
         const S = this.screens;
-        if (S.stack.includes('settings')) EventBus.emit('settings:close');
+        if (S.is('art-bible')) EventBus.emit('artbible:close');
+        else if (S.stack.includes('settings')) EventBus.emit('settings:close');
         else if (S.is('pause')) EventBus.emit('battle:resumeRequest');
         else if (S.is('battle')) EventBus.emit('battle:pauseRequest');
         return;
       }
       if (!this.screens.is('battle') && !this.screens.stack.includes('battle')) return;
-      if (this.screens.stack.includes('pause') || this.screens.stack.includes('settings')) return;
+      if (this.screens.stack.includes('pause') || this.screens.stack.includes('settings') || this.screens.stack.includes('art-bible')) return;
       const map = { Digit1: 'rifleman', Digit2: 'gunner', Digit3: 'tank', Digit4: 'artillery' };
       if (map[e.code]) { EventBus.emit('buy:unit', { id: map[e.code] }); e.preventDefault(); }
       if (e.code === 'Space') { EventBus.emit('ability:use'); e.preventDefault(); }

@@ -29,9 +29,39 @@ export const DEFAULT_SETTINGS = {
   shadows: true,
   bgAnim: true,
   screenShake: true,
+  gore: 'NORMAL', // impact FX: NONE | NORMAL | EXTREME
   master: 80,
   music: 55,
   sfx: 85
+};
+
+/* ---------- VISUAL BIBLE — Frontline: Operación Ironveil ---------- */
+export const ART_PALETTE = {
+  player: [
+    { name: 'CIAN ELÉCTRICO', hex: '#00C6FF', role: 'Neón primario, visores, escudos' },
+    { name: 'AZUL HIELO', hex: '#4DA6FF', role: 'Cristal de torre, relleno frío' },
+    { name: 'ÁMBAR', hex: '#FFAA33', role: 'Municiones, despliegue, HUD de mando' },
+    { name: 'GRIS ACERO', hex: '#1A1F26', role: 'Armadura, plataformas, blindaje' }
+  ],
+  enemy: [
+    { name: 'ROJO HOSTIL', hex: '#FF2A2A', role: 'Alertas, ojos alien, escudo defensivo' },
+    { name: 'NARANJA MAGMA', hex: '#FF6600', role: 'Ventilas térmicas, anillos de fuego' },
+    { name: 'PÚRPURA NÚCLEO', hex: '#7B1FA2', role: 'Núcleo de energía, bioluminiscencia' },
+    { name: 'NEGRO CARBÓN', hex: '#0D0D0D', role: 'Monolito, armadura orgánica' }
+  ],
+  environment: [
+    { name: 'SUELO METÁLICO', hex: '#15191E', role: 'Planchas del campo de batalla' },
+    { name: 'CIRCUITOS', hex: '#1E2A33', role: 'Trazas y rejilla hexagonal' },
+    { name: 'CIELO PROFUNDO', hex: '#0A1A33', role: 'Cenit espacial, nebulosas' },
+    { name: 'VACÍO', hex: '#020305', role: 'Horizonte y niebla de fondo' }
+  ]
+};
+
+export const ART_ASSETS = {
+  keyframe: 'https://image.qwenlm.ai/generated-images/4e72dd50-37af-44ae-9b1e-fcf18fd47efa/_result.png',
+  fortress: 'https://image.qwenlm.ai/generated-images/1bd99ea3-81e3-4ac8-ab1c-bbb274db5bc8/_result.png',
+  hub: 'https://image.qwenlm.ai/generated-images/3acf67b4-72ea-4ab6-bce0-5da68eada0f2/_result.png',
+  units: 'https://image.qwenlm.ai/generated-images/74d5091a-548e-4fe5-9d65-173cb29fc712/_result.png'
 };
 
 /* ---------- UNIT ROSTER ---------- */

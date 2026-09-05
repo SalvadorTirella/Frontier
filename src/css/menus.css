@@ -316,3 +316,28 @@
 .toast-bar { width: 4px; height: 20px; background: var(--cyan); box-shadow: 0 0 10px var(--cyan); flex: none; }
 .toast.warn { color: #ffd98a; }
 .toast.warn .toast-bar { background: var(--amber); box-shadow: 0 0 10px var(--amber); }
+.toast.ok { color: #a5ffd0; }
+.toast.ok .toast-bar { background: var(--green, #3DFF8C); box-shadow: 0 0 10px rgba(61, 255, 140, 0.8); }
+
+/* ---------- IMPACT FX selector (gore) ---------- */
+.gore-group { display: flex; gap: 6px; }
+.gore-btn {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  padding: 6px 9px;
+  color: var(--ink-dim, #5c718f);
+  background: linear-gradient(165deg, rgba(12, 22, 38, 0.75), rgba(5, 10, 18, 0.65));
+  border: 1px solid var(--border-panel, rgba(0, 198, 255, 0.25));
+  clip-path: var(--clip-notch, polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px));
+  cursor: pointer;
+  transition: all 0.15s var(--ease);
+}
+.gore-btn:hover { filter: brightness(1.5); transform: translateY(-1px); }
+.gore-btn.active {
+  color: #1a1200;
+  background: linear-gradient(180deg, #ffe97a, var(--amber, #FFD700) 60%, #c79f00);
+  border-color: var(--amber, #FFD700);
+  box-shadow: 0 0 12px var(--amber-gold-glow, rgba(255, 215, 0, 0.4));
+  text-shadow: none;
+}

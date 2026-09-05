@@ -42,6 +42,12 @@ const QualityManager = {
     EventBus.emit('audio:changed', { key, value });
   },
 
+  applyGore(level) {
+    StateManager.set('settings.gore', level);
+    SaveManager.saveSettings();
+    EventBus.emit('settings:changed', StateManager.get('settings'));
+  }
+
   applyScaling(level) {
     StateManager.set('settings.hardwareScaling', level);
     SaveManager.saveSettings();
@@ -73,6 +79,7 @@ const QualityManager = {
       particles: s.particles,
       glow: s.glow,
       shadows: s.shadows,
+      gore: s.gore || 'NORMAL',
       hardwareScaling: preset ? preset.hardwareScaling : (s.hardwareScaling || 1)
     };
   }
