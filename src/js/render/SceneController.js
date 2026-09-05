@@ -45,6 +45,7 @@ export default class SceneController {
     this.mode = 'ambient';
     this.fps = 60;
     this.particlesOn = true;
+    this.dustRunning = false;
     this.ok = false;
   }
 
@@ -296,6 +297,7 @@ export default class SceneController {
     this.dust.blendMode = ParticleSystem.BLENDMODE_ONEONE;
     this.dust.emitRate = 26;
     this.dust.start();
+    this.dustRunning = true;
   }
 
   /* ---------------- modes ---------------- */
@@ -516,8 +518,8 @@ export default class SceneController {
     if (this.dirLight) this.dirLight.shadowEnabled = !!cfg.shadows;
     this.particlesOn = !!cfg.particles;
     if (this.dust) {
-      if (cfg.particles && this.dust.isStopped()) this.dust.start();
-      if (!cfg.particles && !this.dust.isStopped()) this.dust.stop();
+      if (cfg.particles && !this.dustRunning) { this.dust.start(); this.dustRunning = true; }
+      if (!cfg.particles && this.dustRunning) { this.dust.stop(); this.dustRunning = false; }
     }
   }
 
