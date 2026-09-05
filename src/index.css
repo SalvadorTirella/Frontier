@@ -1,1 +1,7 @@
-@import "tailwindcss";
+/* TACTICAL ARMY BATTLE — stylesheet bundle (order matters) */
+@import './css/main.css';
+@import './css/animations.css';
+@import './css/screens.css';
+@import './css/menus.css';
+@import './css/hud.css';
+@import './css/responsive.css';
