@@ -120,6 +120,29 @@
 .combo-timer { display: block; width: 46px; height: 3px; margin-top: 4px; background: rgba(255, 215, 0, 0.15); }
 .combo-timer i { display: block; height: 100%; background: var(--amber); box-shadow: 0 0 9px rgba(255, 215, 0, 0.75); }
 
+/* ---------- boss health bar (Milestone 3) ---------- */
+.boss-bar {
+  position: absolute;
+  top: calc(var(--hud-top) + 12px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 440px;
+  z-index: 9;
+  text-align: center;
+  pointer-events: none;
+  animation: riseIn 0.4s var(--ease) both;
+}
+.boss-name {
+  display: block;
+  font-size: 17px;
+  letter-spacing: 0.3em;
+  color: #ff8b96;
+  text-shadow: 0 0 16px rgba(255, 71, 87, 0.65), 0 2px 3px #000;
+  margin-bottom: 5px;
+}
+.boss-track { height: 11px; border-color: rgba(255, 71, 87, 0.5); }
+.boss-track i { box-shadow: 0 0 14px rgba(255, 71, 87, 0.6); }
+
 /* ================= BOTTOM BAR ================= */
 .hud-bottom {
   bottom: 0;
@@ -230,11 +253,14 @@
 .ability.ready-pulse { animation: readyPulse 1.6s ease-in-out infinite; }
 
 /* ---------- lane picker (Milestone 2) ---------- */
+.hud-mid {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 30px;
+  min-width: 0;
+}
 .lane-picker {
-  position: absolute;
-  left: 50%;
-  top: 12px;
-  transform: translateX(-50%);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -456,3 +482,17 @@
 }
 .dmg-float.dmg-crit { font-size: 21px; color: var(--amber); text-shadow: 0 0 13px rgba(255, 215, 0, 0.9), 0 1px 2px #000; }
 .dmg-float.dmg-gain { font-size: 17px; color: var(--green); text-shadow: 0 0 11px rgba(61, 255, 140, 0.85), 0 1px 2px #000; }
+.dmg-float.dmg-word-crit {
+  font-family: var(--font-display);
+  font-size: 19px;
+  letter-spacing: 0.22em;
+  color: var(--amber);
+  text-shadow: 0 0 18px rgba(255, 215, 0, 0.95), 0 0 40px rgba(255, 120, 0, 0.5), 0 2px 3px #000;
+}
+.dmg-float.dmg-word-head {
+  font-family: var(--font-display);
+  font-size: 19px;
+  letter-spacing: 0.22em;
+  color: #ff5868;
+  text-shadow: 0 0 18px rgba(255, 71, 87, 0.95), 0 0 40px rgba(255, 215, 0, 0.4), 0 2px 3px #000;
+}

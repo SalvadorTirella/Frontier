@@ -533,8 +533,9 @@ export default class SceneController {
 
   setUnitHP(handle, pct) {
     const p = Math.max(0, Math.min(1, pct));
+    const half = (handle.hpW || 1.7) / 2;
     handle.hpFg.scaling.x = Math.max(0.001, p);
-    handle.hpFg.position.x = -(1 - p) * 0.85;
+    handle.hpFg.position.x = -(1 - p) * half;
     handle.hpMat.emissiveColor = new Color3(
       0.24 + (1 - p) * 0.76,
       1 - (1 - p) * 0.72,
@@ -594,7 +595,7 @@ export default class SceneController {
       }
       const lights = this.fx.filter((f) => f.kind === 'light').length;
       if (lights < 2) {
-        const pl = new PointLight('expL', pos.add(new Vector3(0, 1.2, 0)), this.scene);
+        const pl = new PointLight('expL', new Vector3(pos.x, pos.y + 1.2, pos.z), this.scene);
         pl.diffuse = color;
         pl.intensity = 6 * power;
         pl.range = 16;
@@ -654,6 +655,252 @@ export default class SceneController {
       this.camera.viewport.toGlobal(1280, 720)
     );
     return { x: t.x, y: t.y };
+  }
+
+  /* ---------------- projectile visuals (Milestone 3) ---------------- */
+
+  /**
+   * Creates the mesh for a projectile kind.
+   * @param {string} kind bullet|rocket|grenade|missile|shell
+   * @param {string} side
+   */
+  projectileMesh(kind, side) {
+    const accent = side === 'player' ? CYAN : RED;
+    let mesh;
+    switch (kind) {
+      case 'rocket':
+        mesh = MeshBuilder.CreateBox('rk', { width: 0.2, height: 0.2, depth: 0.72 }, this.scene);
+        mesh.material = this._emissiveMat(`rkM${mesh.uniqueId}`, accent, 1.3);
+        break;
+      case 'grenade':
+        mesh = MeshBuilder.CreateSphere('gr', { diameter: 0.3 }, this.scene);
+        mesh.material = this._emissiveMat(`grM${mesh.uniqueId}`, AMBER, 1.1);
+        break;
+      case 'shell':
+        mesh = MeshBuilder.CreateSphere('sh', { diameter: 0.34 }, this.scene);
+        mesh.material = this._emissiveMat(`shM${mesh.uniqueId}`, AMBER, 1.4);
+        break;
+      case 'missile':
+        mesh = MeshBuilder.CreateBox('ms', { width: 0.16, height: 0.16, depth: 1.0 }, this.scene);
+        mesh.material = this._emissiveMat(`msM${mesh.uniqueId}`, accent, 1.5);
+        break;
+      default: // bullet tracer
+        mesh = MeshBuilder.CreateBox('bl', { width: 0.07, height: 0.07, depth: 0.85 }, this.scene);
+        mesh.material = this._emissiveMat(`blM${mesh.uniqueId}`, accent, 1.7);
+    }
+    return mesh;
+  }
+
+  /** Smoke puff for rocket / shell trails. */
+  smokePuff(pos) {
+    if (!this.particlesOn) return;
+    const s = MeshBuilder.CreateSphere('smk', { diameter: 0.42 }, this.scene);
+    s.position.set(pos.x, pos.y, pos.z);
+    const m = new StandardMaterial(`smkM${s.uniqueId}`, this.scene);
+    m.diffuseColor = new Color3(0.32, 0.33, 0.36);
+    m.emissiveColor = new Color3(0.1, 0.1, 0.12);
+    m.alpha = 0.5;
+    s.material = m;
+    this.fx.push({ kind: 'grow', mesh: s, age: 0, ttl: 0.7, from: 0.5, to: 2.1 });
+  }
+
+  /** Glowing trail puff for missiles. */
+  glowPuff(pos, side) {
+    const s = MeshBuilder.CreateSphere('gpf', { diameter: 0.2 }, this.scene);
+    s.position.set(pos.x, pos.y, pos.z);
+    s.material = this._emissiveMat(`gpfM${s.uniqueId}`, side === 'player' ? CYAN : RED, 1.2);
+    this.fx.push({ kind: 'shrink', mesh: s, age: 0, ttl: 0.28 });
+  }
+
+  /** Small spark on bullet / cover impacts. */
+  impactSpark(pos, side) {
+    const s = MeshBuilder.CreateSphere('spk', { diameter: 0.3 }, this.scene);
+    s.position.set(pos.x, pos.y, pos.z);
+    s.material = this._emissiveMat(`spkM${s.uniqueId}`, side === 'player' ? CYAN : AMBER, 1.8);
+    this.fx.push({ kind: 'shrink', mesh: s, age: 0, ttl: 0.1 });
+  }
+
+  /**
+   * Instant beam lance between two points.
+   * @param {{x,y,z}} a @param {{x,y,z}} b @param {string} side
+   */
+  beamFX(a, b, side) {
+    const dx = b.x - a.x, dy = b.y - a.y, dz = b.z - a.z;
+    const len = Math.max(0.2, Math.hypot(dx, dy, dz));
+    const mesh = MeshBuilder.CreateBox('beamL', { width: 0.14, height: 0.14, depth: 1 }, this.scene);
+    mesh.position.set((a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2);
+    mesh.scaling.z = len;
+    mesh.rotation.y = Math.atan2(dx, dz);
+    mesh.rotation.x = -Math.asin(Math.max(-1, Math.min(1, dy / len)));
+    mesh.material = this._emissiveMat(`beamLM${mesh.uniqueId}`, side === 'player' ? CYAN : RED, 2.0);
+    this.fx.push({ kind: 'fade', mesh, age: 0, ttl: 0.16 });
+    this.muzzle(new Vector3(a.x, a.y, a.z), side);
+  }
+
+  /**
+   * Telegraphed impact zone: pulsing red disc + rotating ring.
+   * @param {number} x @param {number} z @param {number} r @param {number} duration
+   */
+  telegraphArea(x, z, r, duration) {
+    const disc = MeshBuilder.CreateCylinder('tgrD', { diameter: r * 2, height: 0.05, tessellation: 36 }, this.scene);
+    disc.position.set(x, 0.06, z);
+    const mat = this._emissiveMat(`tgrM${disc.uniqueId}`, RED, 1.0);
+    mat.alpha = 0.22;
+    disc.material = mat;
+    const ring = MeshBuilder.CreateTorus('tgrR', { diameter: r * 2, tube: 0.09, tessellation: 44 }, this.scene);
+    ring.position.set(x, 0.12, z);
+    ring.material = this._emissiveMat(`tgrRM${ring.uniqueId}`, RED, 1.5);
+    this.fx.push({ kind: 'telegraph', mesh: disc, ring, mat, age: 0, ttl: duration });
+  }
+
+  /**
+   * Temporary camera zoom (boss entrance etc). Restores after duration.
+   * @param {number} radius @param {number} duration
+   */
+  cameraZoom(radius, duration) {
+    const prev = this.desired.radius;
+    this.desired.radius = radius;
+    this.pending.push({ t: duration, fn: () => { this.desired.radius = prev; } });
+  }
+
+  /* ---------------- cover rendering ---------------- */
+
+  /** @param {object} cover CoverSystem object */
+  addCoverMesh(cover) {
+    const scene = this.scene;
+    const root = new TransformNode(`cover${cover.id}`, scene);
+    root.position.set(cover.x, 0, cover.z);
+
+    if (cover.type === 'barricade') {
+      const mat = new StandardMaterial(`covM${cover.id}`, scene);
+      mat.diffuseColor = new Color3(0.14, 0.17, 0.2);
+      mat.specularColor = new Color3(0.12, 0.12, 0.14);
+      const box = MeshBuilder.CreateBox('covB', { width: cover.w, height: cover.h, depth: cover.d }, scene);
+      box.position.y = cover.h / 2;
+      box.material = mat;
+      box.parent = root;
+      const stripe = MeshBuilder.CreateBox('covS', { width: cover.w + 0.03, height: 0.16, depth: cover.d + 0.03 }, scene);
+      stripe.position.y = cover.h * 0.66;
+      stripe.material = this._emissiveMat(`covSM${cover.id}`, AMBER, 0.7);
+      stripe.parent = root;
+      this.shadowGen.addShadowCaster(box);
+      cover._mat = mat;
+    } else {
+      const mat = new StandardMaterial(`covM${cover.id}`, scene);
+      mat.diffuseColor = new Color3(0.3, 0.25, 0.15);
+      mat.specularColor = new Color3(0.04, 0.04, 0.03);
+      const box = MeshBuilder.CreateBox('covB', { width: cover.w, height: cover.h, depth: cover.d }, scene);
+      box.position.y = cover.h / 2;
+      box.material = mat;
+      box.parent = root;
+      const top = MeshBuilder.CreateBox('covT', { width: cover.w * 0.9, height: 0.24, depth: cover.d * 0.8 }, scene);
+      top.position.y = cover.h + 0.1;
+      top.material = mat;
+      top.parent = root;
+      this.shadowGen.addShadowCaster(box);
+      cover._mat = mat;
+    }
+    return root;
+  }
+
+  /** Darkens / sinks a cover piece as it takes damage. */
+  updateCoverDamage(cover) {
+    const ratio = Math.max(0, cover.hp / cover.maxHp);
+    if (cover._mat) {
+      cover._mat.diffuseColor = cover._mat.diffuseColor.scale(0.985);
+      cover._mat.emissiveColor = new Color3(0.25 * (1 - ratio), 0.02, 0.0);
+    }
+    if (cover.handle) {
+      cover.handle.position.y = -(1 - ratio) * 0.18;
+    }
+  }
+
+  /** Debris burst when cover is destroyed. */
+  destroyCoverFX(cover) {
+    this.explode(new Vector3(cover.x, 0.7, cover.z), 0.7, 'red');
+    this.smokePuff({ x: cover.x, y: 0.8, z: cover.z });
+  }
+
+  /** @param {object} cover */
+  removeCoverMesh(cover) {
+    if (cover.handle) {
+      cover.handle.dispose();
+      cover.handle = null;
+    }
+  }
+
+  /* ---------------- boss rendering ---------------- */
+
+  /**
+   * Builds the boss rig: dark hull, pulsing core, spikes, wide HP bar.
+   * @param {object} def BOSS_TEMPLATES entry
+   * @param {number} x @param {number} z
+   */
+  addBossMesh(def, x, z) {
+    const scene = this.scene;
+    const k = (def.size || 3) * 0.62;
+    const root = new TransformNode(`boss-${def.id}`, scene);
+    root.position.set(x, 0, z);
+    root.rotation.y = -Math.PI / 2;
+
+    const hullMat = new StandardMaterial('bossHull', scene);
+    hullMat.diffuseColor = new Color3(0.12, 0.06, 0.09);
+    hullMat.specularColor = new Color3(0.2, 0.1, 0.14);
+
+    const hull = MeshBuilder.CreateBox('bossBody', { width: 1.5 * k, height: 1.1 * k, depth: 3.2 * k }, scene);
+    hull.position.y = 0.85 * k;
+    hull.material = hullMat;
+    hull.parent = root;
+
+    const dome = MeshBuilder.CreateSphere('bossDome', { diameter: 1.5 * k }, scene);
+    dome.position.y = 1.5 * k;
+    dome.material = hullMat;
+    dome.parent = root;
+
+    const core = MeshBuilder.CreateSphere('bossCore', { diameter: 0.75 * k }, scene);
+    core.position.set(0, 1.5 * k, -0.55 * k);
+    const coreMat = this._emissiveMat('bossCoreM', RED, 1.6);
+    core.material = coreMat;
+    core.parent = root;
+    this._blinkers = this._blinkers || [];
+    this._blinkers.push({ mat: coreMat, base: RED.clone(), speed: 4.2 });
+
+    [[-0.8, 0.7], [0.8, 0.7], [0, -0.9]].forEach(([ox, oz], i) => {
+      const spike = MeshBuilder.CreateCylinder(`bossSpk${i}`, { diameterTop: 0, diameterBottom: 0.34 * k, height: 1.1 * k, tessellation: 5 }, scene);
+      spike.position.set(ox * k, 2.0 * k, oz * k);
+      spike.material = hullMat;
+      spike.parent = root;
+      this.shadowGen.addShadowCaster(spike);
+    });
+
+    [[-1.15], [1.15]].forEach(([ox], i) => {
+      const pod = MeshBuilder.CreateBox(`bossPod${i}`, { width: 0.5 * k, height: 0.5 * k, depth: 1.4 * k }, scene);
+      pod.position.set(ox * k, 0.55 * k, 0);
+      pod.material = hullMat;
+      pod.parent = root;
+    });
+
+    // wide overhead HP bar
+    const barY = 2.9 * k;
+    const hpBg = MeshBuilder.CreateBox('bossHpBg', { width: 5.4, height: 0.22, depth: 0.06 }, scene);
+    hpBg.position.set(0, barY, 0);
+    const bgMat = new StandardMaterial('bossHpBgM', scene);
+    bgMat.diffuseColor = new Color3(0.02, 0.03, 0.05);
+    bgMat.emissiveColor = new Color3(0.05, 0.03, 0.04);
+    hpBg.material = bgMat;
+    hpBg.parent = root;
+    const hpFg = MeshBuilder.CreateBox('bossHpFg', { width: 5.4, height: 0.22, depth: 0.09 }, scene);
+    hpFg.position.set(0, barY, -0.014);
+    const fgMat = this._emissiveMat('bossHpM', RED, 1.1);
+    hpFg.material = fgMat;
+    hpFg.parent = root;
+
+    this.shadowGen.addShadowCaster(hull);
+    this.shadowGen.addShadowCaster(dome);
+
+    const handle = { root, hpFg, hpMat: fgMat, hpW: 5.4, def: { id: def.id, size: def.size }, side: 'enemy', id: root.uniqueId, tx: x, tz: z, lerp: 6 };
+    this.units.push(handle);
+    return handle;
   }
 
   /* ---------------- quality ---------------- */
@@ -773,6 +1020,11 @@ export default class SceneController {
         case 'light':
           f.light.intensity = f.from * (1 - q);
           if (q >= 1) { f.light.dispose(); this.fx.splice(i, 1); }
+          break;
+        case 'telegraph':
+          f.mat.alpha = 0.16 + 0.14 * (0.5 + 0.5 * Math.sin(f.age * 11));
+          f.ring.rotation.y += dt * 1.4;
+          if (q >= 1) { f.mesh.dispose(); f.ring.dispose(); this.fx.splice(i, 1); }
           break;
         default: this.fx.splice(i, 1);
       }

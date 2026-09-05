@@ -17,6 +17,9 @@
   transform: translateY(0);
   z-index: 6;
 }
+/* battle screen: clicks must reach the 3D canvas (lane picking);
+   interactive children (.hud-panel, lane chips) re-enable events */
+#screen-battle.active { pointer-events: none; }
 .screen.leaving {
   opacity: 0;
   transform: translateY(-14px);

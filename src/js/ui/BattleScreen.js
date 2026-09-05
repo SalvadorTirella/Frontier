@@ -11,9 +11,13 @@ const { Vector3 } = BABYLON || {};
 import { rand, clamp, weightedPick, pad2 } from '../utils/DOMUtils.js';
 import {
   UNIT_TYPES, ABILITY, ECONOMY, BASES, BATTLE, waveDef, BASE_W, BASE_H,
-  ROLE_BY_UNIT, FORMATION, LANE_SWITCH
+  ROLE_BY_UNIT, FORMATION, LANE_SWITCH,
+  WEAPONS, RESIST, CRIT_MULT, HEADSHOT
 } from '../core/Config.js';
 import FormationSystem from '../core/FormationSystem.js';
+import CombatEngine from '../core/CombatEngine.js';
+import CoverSystem from '../core/CoverSystem.js';
+import BossSystem from '../core/BossSystem.js';
 
 export default class BattleScreen {
   constructor() {
@@ -38,6 +42,11 @@ export default class BattleScreen {
       this.hud.setHoverLane(id);
     });
     EventBus.on('formation:reformed', () => {}); // hook for future SFX/VFX
+    EventBus.on('boss:entrance', ({ name }) => {
+      AudioFX.sfx('wave');
+      this.hud.showBanner(`⚠ ${name}`, 'CENTER LANE — PRIORITY TARGET', 'banner-danger');
+    });
+    // boss:defeated → victory flow is handled inside BossSystem._die()
 
     const canvas = ctx.scene.canvas;
     if (canvas) {
@@ -92,6 +101,23 @@ export default class BattleScreen {
     this.hud.setLaneCount(this.lanes.laneCount, this.lanes.lanes.map((l) => l.letter));
     this.hud.setSelectedLane(this.selectedLane);
 
+    /* cinematic combat (Milestone 3): cover, projectiles, boss */
+    this.cover = new CoverSystem(scene);
+    this.cover.generate(this._coverLayout());
+    this.combat = new CombatEngine({
+      scene,
+      damageEntity: (t, d, i) => this._damageEntity(t, d, i),
+      damageCover: (c, d) => this.cover.damageCover(c, d),
+      coverAt: (x, z, r) => this.cover.getCoverAt(x, z, r),
+      blocksLoS: (ax, az, bx, bz) => this.cover.blocksLoS(ax, az, bx, bz),
+      splash: (x, z, r, d, side, i) => this._splash(x, z, r, d, side, i)
+    });
+    this.bossSys = new BossSystem({ battle: this, scene, combat: this.combat, lanes: this.lanes });
+    this.timeScale = 1;
+    this.cineT = 0;
+    this.bossPending = 0;
+    this.hud.setBoss(null);
+
     this.credits = ECONOMY.start;
     this.supplyUsed = 0;
     this.deployedCount = {};
@@ -140,10 +166,17 @@ export default class BattleScreen {
     this.running = false;
     this.ending = false;
     this._endToken = null;
+    this.timeScale = 1;
+    this.cineT = 0;
+    this.bossPending = 0;
+    if (this.combat) this.combat.clear();
+    if (this.cover) this.cover.clear();
+    if (this.bossSys) this.bossSys.reset();
     if (this.formation) this.formation.clear();
     this.ctx.scene.setSelectedLane(null);
     this.ctx.scene.setHoverLane(null);
     this.hud.setHoverLane(null);
+    this.hud.setBoss(null);
     this.ctx.scene.clearUnits();
     this.ctx.scene.restoreBase('player');
     this.ctx.scene.restoreBase('enemy');
@@ -166,29 +199,40 @@ export default class BattleScreen {
     if (!this.running || this.paused || this.ending) return;
     this.time += dt;
 
+    /* cinematic slow-motion (boss entrance) */
+    if (this.cineT > 0) {
+      this.cineT -= dt;
+      if (this.cineT <= 0) this.timeScale = 1;
+    }
+    const sdt = dt * this.timeScale;
+
     /* economy */
     const income = ECONOMY.income + Math.max(0, this.waveIdx) * ECONOMY.incomePerWave;
-    this.credits += income * dt;
-    this.earned += income * dt;
+    this.credits += income * sdt;
+    this.earned += income * sdt;
 
     /* combo decay */
     if (this.combo > 0) {
-      this.comboT -= dt;
+      this.comboT -= sdt;
       if (this.comboT <= 0) { this.combo = 0; this.hud.setCombo(0, 0); }
       else this.hud.setCombo(this.combo, this.comboT / BATTLE.comboWindow);
     }
 
     /* ability cooldown */
     if (this.abilityCd > 0) {
-      this.abilityCd = Math.max(0, this.abilityCd - dt);
+      this.abilityCd = Math.max(0, this.abilityCd - sdt);
       this.hud.setAbility(this.abilityCd / ABILITY.cooldown, this.abilityCd === 0);
     }
 
     /* wave director */
-    this._direct(dt);
+    this._direct(sdt);
 
     /* entities */
-    this._updateEntities(dt);
+    this._updateEntities(sdt);
+
+    /* projectiles & boss */
+    this.combat.tick(sdt);
+    this.bossSys.tick(sdt);
 
     /* base fx throttle */
     this.baseFxT = Math.max(0, this.baseFxT - dt);
@@ -207,6 +251,14 @@ export default class BattleScreen {
   }
 
   _direct(dt) {
+    /* boss drop countdown (final wave) */
+    if (this.bossPending > 0) {
+      this.bossPending -= dt;
+      if (this.bossPending <= 0 && !this.bossSys.active) {
+        this.bossSys.spawn('warbringer', this.lanes.middleLane);
+      }
+    }
+
     if (this.waveState === 'intermission') {
       this.interT -= dt;
       if (this.interT <= 0) this._startWave(this.waveIdx + 1);
@@ -252,6 +304,7 @@ export default class BattleScreen {
     this.waveState = 'spawning';
     this.hud.setWave(i + 1, BATTLE.finalWave);
     const isFinal = i === BATTLE.finalWave - 1;
+    if (isFinal) this.bossPending = 3.2; // the Warbringer drops mid-wave
     this.hud.showBanner(
       isFinal ? 'FINAL WAVE' : `WAVE ${pad2(i + 1)}`,
       isFinal ? 'MAXIMUM THREAT — BREAK THEIR HQ' : `${this.spawnQueue.length} HOSTILES INBOUND — HOLD THE LINE`,
@@ -341,6 +394,7 @@ export default class BattleScreen {
     const anchors = this.formation.computeAnchors(this.entities);
 
     for (const e of this.entities) {
+      if (e.isBoss) continue; // BossSystem drives the boss
       e.cd -= dt;
       if (e.shiftT > 0) {
         e.shiftT -= dt;
@@ -483,27 +537,15 @@ export default class BattleScreen {
     }
   }
 
+  /** Discharges the unit's weapon through the CombatEngine (projectiles). */
   _fire(e, target) {
     const scene = this.ctx.scene;
+    const w = WEAPONS[e.def.id] || WEAPONS.rifleman;
     const dir = e.side === 'player' ? 1 : -1;
-    const a = new Vector3(e.x + dir * 1.25 * e.size, 0.95 * e.size, e.z);
-    const b = new Vector3(target.x, 0.95 * target.size, target.z);
-    scene.tracer(a, b, e.side);
-    scene.muzzle(a, e.side);
-    AudioFX.sfx(e.def.id === 'tank' || e.def.id === 'artillery' ? 'cannon' : 'shot');
-
-    const dmg = e.dmg * rand(0.85, 1.18);
-    if (e.def.splash) {
-      scene.explode(new Vector3(target.x, 0.7, target.z), 0.85);
-      this._damageEntity(target, dmg, e);
-      for (const o of this.entities) {
-        if (o.side === e.side || o === target || o.hp <= 0) continue;
-        const dx = o.x - target.x, dz = o.z - target.z;
-        if (dx * dx + dz * dz <= e.def.splash * e.def.splash) this._damageEntity(o, dmg * 0.7, e);
-      }
-    } else {
-      this._damageEntity(target, dmg, e);
-    }
+    const from = { x: e.x + dir * 1.25 * e.size, y: 0.95 * e.size + 0.35, z: e.z };
+    scene.muzzle(new Vector3(from.x, from.y, from.z), e.side);
+    AudioFX.sfx(w.proj === 'bullet' ? 'shot' : 'cannon');
+    this.combat.fire({ weapon: w, side: e.side, from, target, source: e, dmg: e.dmg });
   }
 
   _hitBase(e) {
@@ -516,32 +558,116 @@ export default class BattleScreen {
       e.side
     );
     AudioFX.sfx('shot');
+    this.hitBaseDirect(targetSide, e.dmg);
+  }
+
+  /** Raw base damage with throttled impact FX (units & boss). */
+  hitBaseDirect(targetSide, dmg) {
+    const scene = this.ctx.scene;
     if (this.baseFxT <= 0) {
       this.baseFxT = 0.3;
       scene.damageBaseFX(targetSide);
       if (targetSide === 'player') scene.shake(0.7);
     }
-    this._damageBase(targetSide, e.dmg);
+    this._damageBase(targetSide, dmg);
   }
 
-  _damageEntity(t, dmg, source) {
-    if (t.hp <= 0) return;
-    t.hp -= dmg;
+  /**
+   * Full damage pipeline: variance → kind resistance → cover →
+   * crit → headshot. Bosses route through BossSystem.takeDamage.
+   * @param {object} t target entity
+   * @param {number} dmg raw damage
+   * @param {object} [info] { kind, variance, critChance, source, splash }
+   */
+  _damageEntity(t, dmg, info = {}) {
+    if (!t || t.hp <= 0) return;
+    const kind = info.kind || 'kinetic';
+    let d = dmg * rand(1 - (info.variance ?? 0.12), 1 + (info.variance ?? 0.12));
+    const resistTable = RESIST[t.def.id];
+    if (resistTable && resistTable[kind]) d *= resistTable[kind];
+
+    // cover: full reduction vs kinetic, 40% vs explosive splash
+    if (this.cover) {
+      const c = this.cover.getCoverAt(t.x, t.z, 1.5);
+      if (c) d *= 1 - c.coverValue * (info.splash ? 0.4 : 1);
+    }
+
+    // crit & headshot
+    let cls = '';
+    if (info.critChance && Math.random() < info.critChance) {
+      d *= CRIT_MULT;
+      cls = 'dmg-crit';
+      this._wordFloat(t, 'CRITICAL!', 'dmg-word-crit');
+    }
+    if (info.source && info.source.role === 'BACK' && t.role === 'FRONT' && Math.random() < HEADSHOT.chance) {
+      d *= HEADSHOT.mult;
+      cls = 'dmg-crit';
+      this._wordFloat(t, 'HEADSHOT!', 'dmg-word-head');
+    }
+
+    if (t.isBoss) {
+      this.bossSys.takeDamage(d);
+      return;
+    }
+
+    t.hp -= d;
     this.ctx.scene.setUnitHP(t.handle, t.hp / t.maxHp);
 
     if (this.floatBudget > 0) {
       this.floatBudget--;
       const p = this.ctx.scene.project(new Vector3(t.x, 2.3 * t.size, t.z));
       if (p.x > 20 && p.x < BASE_W - 20 && p.y > 20 && p.y < BASE_H - 20) {
-        this.hud.float(p.x + rand(-14, 14), p.y, Math.round(dmg), dmg > 45 ? 'dmg-crit' : '');
+        this.hud.float(p.x + rand(-14, 14), p.y, Math.round(d), cls || (d > 45 ? 'dmg-crit' : ''));
       }
     }
     AudioFX.sfx('hit');
 
-    if (t.hp <= 0) this._killEntity(t, source);
+    if (t.hp <= 0) this._killEntity(t, info.source);
+  }
+
+  /** Big floating word above a unit (CRITICAL! / HEADSHOT!). */
+  _wordFloat(t, text, cls) {
+    if (this.floatBudget <= 0) return;
+    this.floatBudget--;
+    const p = this.ctx.scene.project(new Vector3(t.x, 2.9 * t.size, t.z));
+    if (p.x > 30 && p.x < BASE_W - 30 && p.y > 30 && p.y < BASE_H - 30) {
+      this.hud.float(p.x, p.y - 16, text, cls);
+    }
+  }
+
+  /**
+   * Area damage resolver (explosive projectiles, mortar strikes).
+   * @param {number} x @param {number} z @param {number} r radius
+   * @param {number} dmg @param {string} side shooter's side
+   * @param {object} info damage info forwarded to _damageEntity
+   */
+  _splash(x, z, r, dmg, side, info = {}) {
+    const scene = this.ctx.scene;
+    scene.explode(new Vector3(x, 0.7, z), 0.7 + r * 0.28, side === 'player' ? 'cyan' : 'amber');
+    AudioFX.sfx('explode');
+    if (r >= 3) scene.shake(0.5);
+
+    const copy = [...this.entities];
+    for (const o of copy) {
+      if (o.side === side || o.hp <= 0) continue;
+      const rr = r + (o.size || 1) * 0.4;
+      const dx = o.x - x, dz = o.z - z;
+      const d2 = dx * dx + dz * dz;
+      if (d2 > rr * rr) continue;
+      const falloff = 1 - 0.55 * Math.min(1, Math.sqrt(d2) / r);
+      this._damageEntity(o, dmg * falloff, info);
+    }
+
+    // explosive damage chips away at cover pieces in the blast
+    if (this.cover) {
+      [...this.cover.covers].forEach((c) => {
+        if (Math.hypot(c.x - x, c.z - z) <= r + 1) this.cover.damageCover(c, dmg * 0.8);
+      });
+    }
   }
 
   _killEntity(t) {
+    if (t.isBoss) return; // boss death is fully handled by BossSystem
     const scene = this.ctx.scene;
     scene.explode(new Vector3(t.x, 0.75, t.z), 0.85 + t.size * 0.35, t.side === 'enemy' ? 'amber' : 'red');
     AudioFX.sfx('explode');
@@ -623,23 +749,62 @@ export default class BattleScreen {
     AudioFX.sfx('airstrike');
     this.ctx.scene.shake(1.3);
 
-    const r2 = ABILITY.radius * ABILITY.radius;
-    [...enemies].forEach((e) => {
-      const dx = e.x - pos.x, dz = e.z - pos.z;
-      if (dx * dx + dz * dz <= r2) this._damageEntity(e, ABILITY.dmg * rand(0.9, 1.1), null);
-    });
+    // physical shell volley — each shell detonates on impact
+    const shellWeapon = {
+      proj: 'shell', kind: 'explosive', speed: 10,
+      splash: ABILITY.radius * 0.5, variance: 0.15, crit: 0
+    };
+    for (let i = 0; i < 5; i++) {
+      this.combat.fire({
+        weapon: shellWeapon,
+        side: 'player',
+        from: { x: pos.x, y: 26, z: pos.z },
+        point: { x: pos.x + rand(-2.6, 2.6), z: pos.z + rand(-2.6, 2.6) },
+        target: null,
+        source: null,
+        dmg: ABILITY.dmg * 0.42
+      });
+    }
+  }
+
+  /* ================= cinematic control ================= */
+
+  /** Brief slow-motion window (boss entrance). */
+  beginCinematic(dur) {
+    this.cineT = dur;
+    this.timeScale = 0.22;
+  }
+
+  /** Victory triggered by boss elimination. */
+  bossVictory() {
+    this._endBattle(true, 'WARBRINGER ELIMINATED — SECTOR SECURED');
+  }
+
+  /** Deterministic cover layout: pieces sit on lane boundaries. */
+  _coverLayout() {
+    const lanes = this.lanes.lanes;
+    const zs = [];
+    for (let i = 0; i < lanes.length - 1; i++) zs.push((lanes[i].zCenter + lanes[i + 1].zCenter) / 2);
+    if (!zs.length) zs.push(0);
+    return [-14, -7, 0, 7, 14].map((x, i) => ({
+      type: i % 2 === 0 ? 'sandbag' : 'barricade',
+      x: x + rand(-0.6, 0.6),
+      z: zs[i % zs.length] + rand(-0.35, 0.35)
+    }));
   }
 
   /* ================= end of battle ================= */
-  _endBattle(victory) {
+  _endBattle(victory, victoryLabel) {
     if (this.ending) return;
     this.ending = true;
     const scene = this.ctx.scene;
+    this.timeScale = 1;
+    this.cineT = 0;
 
     if (victory) {
       scene.collapseBase('enemy');
       scene.shake(1.4);
-      this.hud.announce('ENEMY HQ DEMOLISHED', 'announce-ally');
+      this.hud.announce(victoryLabel || 'ENEMY HQ DEMOLISHED', 'announce-ally');
       AudioFX.sfx('victory');
     } else {
       scene.collapseBase('player');

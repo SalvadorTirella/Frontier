@@ -95,6 +95,52 @@ export const LANE_SWITCH = {
 
 export const LANE_KEYS = ['KeyQ', 'KeyW', 'KeyE', 'KeyR', 'KeyT'];
 
+/* ---------- CINEMATIC COMBAT (Milestone 3) ---------- */
+
+/** Weapon profile per unit — projectile class, damage kind, ballistics */
+export const WEAPONS = {
+  rifleman: { proj: 'bullet', kind: 'kinetic', speed: 55, variance: 0.16, crit: 0.06 },
+  gunner: { proj: 'bullet', kind: 'kinetic', speed: 62, variance: 0.12, crit: 0.05 },
+  tank: { proj: 'rocket', kind: 'explosive', speed: 21, splash: 3.0, variance: 0.1, crit: 0.04 },
+  artillery: { proj: 'grenade', kind: 'explosive', speed: 15, splash: 4.4, variance: 0.2, crit: 0.03 },
+  boss: { proj: 'rocket', kind: 'explosive', speed: 18, splash: 3.4, variance: 0.12, crit: 0 }
+};
+
+/** Damage-kind resistance table (tank shrugs off kinetic, fears explosive) */
+export const RESIST = {
+  rifleman: { kinetic: 1.0, explosive: 0.9 },
+  gunner: { kinetic: 0.95, explosive: 0.9 },
+  tank: { kinetic: 0.55, explosive: 1.2 },
+  artillery: { kinetic: 0.85, explosive: 1.1 },
+  warbringer: { kinetic: 0.7, explosive: 0.95 }
+};
+
+export const CRIT_MULT = 1.8;
+export const HEADSHOT = { chance: 0.12, mult: 2.2 }; // BACK row sniping FRONT row
+
+export const COVER_DEFS = {
+  sandbag: { w: 2.7, h: 0.95, d: 1.1, hp: 300, coverValue: 0.45, blocksLoS: false },
+  barricade: { w: 2.3, h: 2.1, d: 0.65, hp: 480, coverValue: 0.65, blocksLoS: true }
+};
+
+export const BOSS_TEMPLATES = {
+  warbringer: {
+    id: 'warbringer',
+    name: 'XENO WARBRINGER',
+    hp: 4200,
+    size: 3.1,
+    speed: 1.15,
+    reward: 1500,
+    dmg: 58,
+    radius: 2.6,
+    phases: [
+      { at: 1.0, rate: 2.6, move: 1.0, attack: 'cannon' },
+      { at: 0.66, rate: 1.9, move: 1.3, attack: 'mortar' },
+      { at: 0.33, rate: 1.25, move: 1.65, attack: 'lance' }
+    ]
+  }
+};
+
 /* Wave generator */
 export function waveDef(i) {
   return {

@@ -15,7 +15,7 @@ import SceneController from '../render/SceneController.js';
 import AudioFX from '../utils/AudioUtils.js';
 import { make, on, setTxt, rand } from '../utils/DOMUtils.js';
 import { animateNumber, staggerIn } from '../utils/AnimationUtils.js';
-import { BASE_W, BASE_H, BATTLE, rankForXp } from '../core/Config.js';
+import { BASE_W, BASE_H, BATTLE, rankForXp, LANE_KEYS } from '../core/Config.js';
 import { fmtTime } from '../utils/DOMUtils.js';
 
 const UIManager = {

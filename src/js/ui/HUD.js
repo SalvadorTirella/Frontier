@@ -80,6 +80,29 @@ export default class HUD {
     ['hp-player', 'hud-credits', 'hud-supply', 'hud-wave', 'hud-hostiles', 'hud-combo', 'hud-combo-n', 'hud-combo-timer', 'hp-enemy', 'hud-pause-btn'].forEach((id) => {
       this.refs[id] = top.querySelector(`#${id}`);
     });
+
+    // boss health bar (Milestone 3)
+    this.refs.bossWrap = make('div', 'boss-bar hidden', `
+      <span class="boss-name display" id="boss-name"></span>
+      <div class="bar seg bar-red boss-track"><i id="boss-hp-fill" style="width:100%"></i></div>`);
+    this.el.appendChild(this.refs.bossWrap);
+  }
+
+  /**
+   * Shows / hides the boss health bar.
+   * @param {string|null} name boss display name (null hides)
+   * @param {number} [pct] 0..1 remaining health
+   */
+  setBoss(name, pct) {
+    const w = this.refs.bossWrap;
+    if (!w) return;
+    if (name === null || name === undefined) {
+      w.classList.add('hidden');
+      return;
+    }
+    w.classList.remove('hidden');
+    if (name) setTxt(w.querySelector('#boss-name'), name);
+    w.querySelector('#boss-hp-fill').style.width = `${Math.max(0, Math.min(1, pct)) * 100}%`;
   }
 
   /* ---------------- BOTTOM BAR ---------------- */
@@ -101,13 +124,14 @@ export default class HUD {
       <span class="ability-name">${ABILITY.name}</span>
       <span class="ability-key mono">[SPACE]</span>
       <span class="ability-cd"></span>`);
-    bottom.appendChild(ability);
-    this.refs.ability = ability;
-
-    // lane picker (Milestone 2)
+    // center cluster: lane picker + ability (in-flow, never overlaps the shop)
+    const mid = make('div', 'hud-mid');
     const lanePicker = make('div', 'lane-picker');
     lanePicker.innerHTML = `<span class="block-label">DEPLOY LANE</span><div class="lane-chips"></div>`;
-    bottom.appendChild(lanePicker);
+    mid.appendChild(lanePicker);
+    mid.appendChild(ability);
+    bottom.appendChild(mid);
+    this.refs.ability = ability;
     this.laneChipsEl = lanePicker.querySelector('.lane-chips');
     on(lanePicker, 'mouseleave', () => EventBus.emit('lane:hover', { id: null }));
 
