@@ -68,7 +68,7 @@ export default class MainMenu {
         <div class="menu-hints mono" data-anim>[1–4] REQUISITION &nbsp;·&nbsp; [SPACE] AIRSTRIKE &nbsp;·&nbsp; [P] PAUSE &nbsp;·&nbsp; [ESC] BACK</div>
       </div>
       <aside class="menu-right">
-        <div class="profile-panel panel-frame chamfer" data-anim>
+        <div class="profile-panel panel-frame chamfer tech-frame amber-c" data-anim>
           <div class="pp-head"><span class="pp-title">OPERATIVE FILE</span><span class="pp-secure mono">CLEARANCE LVL 3</span></div>
           <div class="pp-id">
             <div class="pp-avatar">${AVATAR_SVG}<i class="avatar-scan"></i></div>
@@ -99,9 +99,14 @@ export default class MainMenu {
       on(btn, 'mouseenter', () => AudioFX.sfx('hover'));
       on(btn, 'click', () => this._action(btn.dataset.action));
     });
-    on(this.el.querySelector('#mm-fullscreen'), 'click', () => {
+    this.fsChip = this.el.querySelector('#mm-fullscreen');
+    on(this.fsChip, 'click', () => {
       AudioFX.sfx('click');
       this.ctx.toggleFullscreen();
+    });
+    EventBus.on('fullscreen:changed', ({ active }) => {
+      this.fsChip.textContent = active ? '⛶ EXIT FULLSCREEN' : '⛶ FULLSCREEN';
+      this.fsChip.classList.toggle('fs-on', active);
     });
   }
 

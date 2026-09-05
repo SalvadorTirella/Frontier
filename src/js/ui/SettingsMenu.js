@@ -86,7 +86,13 @@ export default class SettingsMenu {
         <b>${name}</b>
         <span class="mono">${p.hardwareScaling === 0.75 ? 'SSAA ×1.33' : p.hardwareScaling === 1 ? 'NATIVE' : `SCALE 1/${p.hardwareScaling}`}</span>
         <i class="preset-check">◆</i>`);
-      on(btn, 'click', () => { AudioFX.sfx('click'); QualityManager.applyPreset(name); });
+      on(btn, 'click', () => {
+        AudioFX.sfx('click');
+        // optimistic paint: feedback inmediato, el evento reconcilia el resto
+        Object.entries(this.presetBtns).forEach(([n, b]) => b.classList.toggle('active', n === name));
+        this.customBadge.classList.add('hidden');
+        QualityManager.applyPreset(name);
+      });
       on(btn, 'mouseenter', () => AudioFX.sfx('hover'));
       presetWrap.appendChild(btn);
       this.presetBtns[name] = btn;
@@ -105,6 +111,7 @@ export default class SettingsMenu {
       on(sw, 'click', () => {
         const next = !StateManager.get(`settings.${t.key}`);
         AudioFX.sfx('click');
+        sw.classList.toggle('on', next); // paint inmediato sin esperar al bus
         QualityManager.applyToggle(t.key, next);
       });
       row.appendChild(sw);
@@ -135,12 +142,17 @@ export default class SettingsMenu {
     this.shakeSw = make('button', 'switch', '<i></i>');
     on(this.shakeSw, 'click', () => {
       AudioFX.sfx('click');
-      QualityManager.applyToggle('screenShake', !StateManager.get('settings.screenShake'));
+      const next = !StateManager.get('settings.screenShake');
+      this.shakeSw.classList.toggle('on', next);
+      QualityManager.applyToggle('screenShake', next);
     });
     shakeWrap.appendChild(this.shakeSw);
 
     on(panel.querySelector('#set-back'), 'click', () => { AudioFX.sfx('back'); EventBus.emit('settings:close'); });
-    on(panel.querySelector('#set-fullscreen'), 'click', () => { AudioFX.sfx('click'); this.ctx.toggleFullscreen(); });
+    this.fsBtn = panel.querySelector('#set-fullscreen');
+    on(this.fsBtn, 'click', () => { AudioFX.sfx('click'); this.ctx.toggleFullscreen(); });
+    EventBus.on('fullscreen:changed', ({ active }) => this._paintFullscreen(active));
+    this._paintFullscreen(!!(document.fullscreenElement || document.webkitFullscreenElement));
     on(panel.querySelector('#set-export'), 'click', async () => {
       AudioFX.sfx('click');
       try {
@@ -155,6 +167,12 @@ export default class SettingsMenu {
   _bind() {
     // live-preview blips while dragging SFX/music
     this.el.addEventListener('change', () => AudioFX.sfx('buy'));
+  }
+
+  _paintFullscreen(active) {
+    if (!this.fsBtn) return;
+    this.fsBtn.classList.toggle('fs-active', active);
+    this.fsBtn.querySelector('span').textContent = active ? '⛶ EXIT FULLSCREEN' : '⛶ TOGGLE FULLSCREEN';
   }
 
   syncUI() {
