@@ -47,7 +47,9 @@ export default class BattleScreen {
     });
     EventBus.on('formation:reformed', () => {}); // hook for future SFX/VFX
     EventBus.on('boss:entrance', ({ name }) => {
-      AudioFX.sfx('wave');
+      AudioFX.sfx('roar');
+      AudioFX.sfx('alarm');
+      AudioFX.startMusic('boss');
       this.hud.showBanner(`⚠ ${name}`, 'CENTER LANE — PRIORITY TARGET', 'banner-danger');
     });
     // boss:defeated → victory flow is handled inside BossSystem._die()
@@ -378,6 +380,10 @@ export default class BattleScreen {
       isFinal ? 'banner-danger' : ''
     );
     AudioFX.sfx('wave');
+    AudioFX.sfx('radio');
+    if (isFinal) AudioFX.sfx('alarm');
+    // music escalates with each wave
+    AudioFX.setMusicIntensity(i / Math.max(1, BATTLE.finalWave - 1));
   }
 
   _waveCleared() {
@@ -614,7 +620,10 @@ export default class BattleScreen {
     const dir = e.side === 'player' ? 1 : -1;
     const from = { x: e.x + dir * 1.25 * e.size, y: 0.95 * e.size + 0.35, z: e.z };
     scene.muzzle(new Vector3(from.x, from.y, from.z), e.side);
-    AudioFX.sfx(w.proj === 'bullet' ? 'shot' : 'cannon');
+    scene.recoilUnit(e.handle);
+    // per-class discharge sound (aliens get an organic layer)
+    const perClass = { rifleman: 'rifle', gunner: 'heavy', heavy: 'heavy', sniper: 'sniper', flamethrower: 'flame', grenadier: 'grenade', rpg: 'rpg', tank: 'tank', artillery: 'cannon' };
+    AudioFX.sfx(e.side === 'enemy' && Math.random() < 0.22 ? 'alien' : (perClass[e.def.id] || 'shot'));
     this.combat.fire({ weapon: w, side: e.side, from, target, source: e, dmg: e.dmg });
   }
 
@@ -693,6 +702,8 @@ export default class BattleScreen {
 
     t.hp -= d;
     this.ctx.scene.setUnitHP(t.handle, t.hp / t.maxHp);
+    this.ctx.scene.hitUnit(t.handle);
+    if (Math.random() < 0.3) AudioFX.sfx(t.def && t.def.size >= 1.4 ? 'hitMetal' : 'hit');
 
     if (this.floatBudget > 0) {
       this.floatBudget--;
@@ -763,9 +774,16 @@ export default class BattleScreen {
   _killEntity(t) {
     if (t.isBoss) return; // boss death is fully handled by BossSystem
     const scene = this.ctx.scene;
-    scene.explode(new Vector3(t.x, 0.75, t.z), 0.85 + t.size * 0.35, t.side === 'enemy' ? 'amber' : 'red');
-    AudioFX.sfx('explode');
-    if (t.size >= 1.4 || Math.abs(t.x) > 22) scene.shake(0.55);
+    const big = t.size >= 1.4;
+    // aliens burst with bioluminescent violet; humans with red/amber
+    scene.explode(new Vector3(t.x, 0.75, t.z), 0.85 + t.size * 0.35, t.side === 'enemy' ? 'violet' : 'red');
+    if (t.side === 'enemy') {
+      AudioFX.sfx('alienDie');
+      if (big) AudioFX.sfx('boomBig');
+    } else {
+      AudioFX.sfx(big ? 'boomBig' : 'explode');
+    }
+    if (big || Math.abs(t.x) > 22) scene.shake(0.55);
     this.formation.releaseSlot(t); // survivors glide into the freed slots
     scene.removeUnit(t.handle);
     const idx = this.entities.indexOf(t);
@@ -1044,11 +1062,13 @@ export default class BattleScreen {
       scene.shake(1.4);
       this.hud.announce(victoryLabel || 'ENEMY HQ DEMOLISHED', 'announce-ally');
       AudioFX.sfx('victory');
+      AudioFX.startMusic('victory');
     } else {
       scene.collapseBase('player');
       scene.shake(1.4);
       this.hud.announce('BASE LOST', 'announce-danger');
       AudioFX.sfx('defeat');
+      AudioFX.startMusic('defeat');
     }
 
     const wavesCleared = victory ? BATTLE.finalWave : clamp(this.waveIdx, 0, BATTLE.finalWave);

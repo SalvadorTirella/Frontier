@@ -1203,6 +1203,12 @@ export default class SceneController {
     }
   }
 
+  /** Kicks a unit's rig backward (fire recoil). */
+  recoilUnit(handle) { if (handle) handle.recoil = 1; }
+
+  /** Flashes a unit's scale (hit reaction). */
+  hitUnit(handle) { if (handle) handle.hitT = 0.12; }
+
   /**
    * Distinctive hero rig: taller hull, base glow ring and an amber
    * ultimate-charge bar above the health bar.
@@ -1444,7 +1450,7 @@ export default class SceneController {
   }
 
   explode(pos, power = 1, hue = 'amber') {
-    const color = hue === 'red' ? RED : hue === 'cyan' ? CYAN : AMBER;
+    const color = hue === 'red' ? RED : hue === 'cyan' ? CYAN : hue === 'violet' ? PURPLE : AMBER;
 
     // white-hot flash core
     const flash = MeshBuilder.CreateSphere('expFlash', { diameter: 1 }, this.scene);
@@ -1583,9 +1589,13 @@ export default class SceneController {
    * Creates the mesh for a projectile kind.
    * @param {string} kind bullet|rocket|grenade|missile|shell
    * @param {string} side
+   * @param {string} [hue] optional per-class tracer color name
    */
-  projectileMesh(kind, side) {
-    const accent = side === 'player' ? CYAN : RED;
+  projectileMesh(kind, side, hue = null) {
+    const hueMap = {
+      cyan: CYAN, ice: ICE, amber: AMBER, red: RED, magma: MAGMA, violet: PURPLE, green: HP_GREEN
+    };
+    const accent = (hue && hueMap[hue]) ? hueMap[hue] : (side === 'player' ? CYAN : RED);
     let mesh;
     switch (kind) {
       case 'rocket':
@@ -1681,6 +1691,26 @@ export default class SceneController {
     const prev = this.desired.radius;
     this.desired.radius = radius;
     this.pending.push({ t: duration, fn: () => { this.desired.radius = prev; } });
+  }
+
+  /**
+   * Expanding shockwave ring on the ground (boss attacks, big impacts).
+   * @param {{x,z}} pos @param {object} color Color3 @param {number} power
+   */
+  shockwave(pos, color = RED, power = 1) {
+    const ring = MeshBuilder.CreateTorus('shock', { diameter: 1, tube: 0.12, tessellation: 48 }, this.scene);
+    ring.position.set(pos.x, 0.1, pos.z);
+    ring.material = this._emissiveMat(`shockM${ring.uniqueId}`, color, 1.6);
+    this.fx.push({ kind: 'growFlat', mesh: ring, age: 0, ttl: 0.5, from: 0.8, to: 7 * power });
+    const flash = MeshBuilder.CreateSphere('shockF', { diameter: 1 }, this.scene);
+    flash.position.set(pos.x, 0.4, pos.z);
+    flash.material = this._emissiveMat(`shockFM${flash.uniqueId}`, color, 2);
+    this.fx.push({ kind: 'grow', mesh: flash, age: 0, ttl: 0.25, from: 0.3, to: 2.4 * power });
+  }
+
+  /** Purple shockwave reserved for the boss. */
+  bossShockwave(pos, power = 1) {
+    this.shockwave(pos, PURPLE, power);
   }
 
   /* ---------------- cover rendering ---------------- */
@@ -1878,13 +1908,51 @@ export default class SceneController {
       });
     }
 
-    // unit movement interpolation (targets come from the battle sim)
+    // unit movement interpolation + procedural animation (march, recoil, hit)
     for (let i = 0; i < this.units.length; i++) {
       const u = this.units[i];
       const p = u.root.position;
       const kk = 1 - Math.exp(-(u.lerp || 9) * dt);
       p.x += (u.tx - p.x) * kk;
       p.z += (u.tz - p.z) * kk;
+
+      const isInfantry = u.def && u.def.size <= 1.3;
+      const dist = Math.hypot(u.tx - p.x, u.tz - p.z);
+      const moving = dist > 0.12;
+
+      if (u.phase === undefined) u.phase = Math.random() * Math.PI * 2;
+      if (u.recoil === undefined) u.recoil = 0;
+      if (u.hitT === undefined) u.hitT = 0;
+
+      // marching bob for infantry
+      if (isInfantry) {
+        const bobAmp = moving ? 0.075 * (u.def.size || 1) : 0.022 * (u.def.size || 1);
+        const bobSpeed = moving ? 11 : 2.2;
+        u._bob = (u._bob || 0) + dt * bobSpeed;
+        p.y = Math.abs(Math.sin(u._bob + u.phase)) * bobAmp;
+        u.root.rotation.x = moving ? 0.06 : Math.sin(u._bob * 0.4 + u.phase) * 0.015;
+      }
+
+      // fire recoil — kicks the rig backward then recovers
+      if (u.recoil > 0) {
+        u.recoil = Math.max(0, u.recoil - dt * 5);
+        u.root.position.z -= 0; // visual kick applied to child via scale below
+        const k = u.recoil;
+        u.root.scaling.z = 1 - k * 0.08;
+        u.root.scaling.x = 1 + k * 0.05;
+      } else if (u.root.scaling.z !== 1) {
+        u.root.scaling.z += (1 - u.root.scaling.z) * Math.min(1, dt * 12);
+        u.root.scaling.x += (1 - u.root.scaling.x) * Math.min(1, dt * 12);
+      }
+
+      // hit reaction — quick scale flash
+      if (u.hitT > 0) {
+        u.hitT = Math.max(0, u.hitT - dt);
+        const s = 1 + u.hitT * 0.35;
+        u.root.scaling.y = s;
+      } else if (u.root.scaling.y !== 1) {
+        u.root.scaling.y += (1 - u.root.scaling.y) * Math.min(1, dt * 14);
+      }
     }
 
     // deploy arrow pulse

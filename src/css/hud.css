@@ -687,3 +687,34 @@
 .up-node.is-locked { filter: saturate(0.2) brightness(0.55); cursor: not-allowed; }
 .up-node.is-locked:hover { transform: none; filter: saturate(0.2) brightness(0.55); }
 .up-node.is-poor .up-cost { color: var(--red); }
+
+/* ================= RECRUIT PREVIEW (Milestone 5) ================= */
+.recruit-preview {
+  position: absolute;
+  z-index: 60;
+  width: 220px;
+  padding: 12px 14px;
+  pointer-events: none;
+  clip-path: var(--clip-corner);
+  background:
+    var(--tex-grid),
+    var(--tex-scan),
+    linear-gradient(165deg, rgba(10, 22, 40, 0.96), rgba(5, 11, 20, 0.92));
+  border: 1px solid var(--border-panel-active, rgba(0, 198, 255, 0.8));
+  box-shadow: 0 0 25px rgba(0, 198, 255, 0.25), 0 12px 34px rgba(0, 0, 0, 0.7), inset 0 0 15px rgba(0, 198, 255, 0.05);
+  animation: riseIn 0.18s var(--ease) both;
+}
+.recruit-preview.hidden { display: none; }
+.rp-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.rp-head b { font-size: 16px; font-weight: 700; letter-spacing: 0.14em; color: var(--text-primary); }
+.rp-role { font-size: 9px; font-weight: 700; letter-spacing: 0.12em; padding: 2px 7px; clip-path: var(--clip-notch); }
+.rp-front { color: #06131f; background: var(--amber); }
+.rp-mid { color: #04121f; background: var(--neon-cyan, #00C6FF); }
+.rp-back { color: #1a0a1f; background: #c77dff; }
+.rp-trait { font-size: 11px; letter-spacing: 0.04em; color: var(--text-secondary); margin: 5px 0 9px; line-height: 1.35; }
+.rp-grid { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; font-size: 12px; }
+.rp-grid span { color: var(--text-secondary); letter-spacing: 0.14em; }
+.rp-grid b { color: var(--neon-cyan, #00C6FF); text-align: right; letter-spacing: 0.05em; }
+.rp-grid b.rp-kind { color: var(--amber); }
+.rp-cost { margin-top: 9px; padding-top: 8px; border-top: 1px solid var(--border-panel); font-size: 12px; letter-spacing: 0.12em; color: var(--text-secondary); }
+.rp-cost b { color: var(--amber); letter-spacing: 0.05em; text-shadow: 0 0 8px var(--amber-gold-glow); }

@@ -7,7 +7,8 @@ import { animateNumber, retrigger, spawnFloat } from '../utils/AnimationUtils.js
 import AudioFX from '../utils/AudioUtils.js';
 import {
   UNIT_TYPES, ABILITY, ECONOMY, LANE_KEYS,
-  HERO_TYPES, STRUCTURE_TYPES, UPGRADE_TREE
+  HERO_TYPES, STRUCTURE_TYPES, UPGRADE_TREE,
+  WEAPONS, ROLE_BY_UNIT
 } from '../core/Config.js';
 
 const ICONS = {
@@ -46,6 +47,7 @@ export default class HUD {
     this._buildRail();
     this._buildUpgradePanel();
     this._buildOverlays();
+    this._buildRecruitPreview();
     this._bind();
   }
 
@@ -319,10 +321,54 @@ export default class HUD {
     this.el.appendChild(this.refs.fx);
   }
 
+  /* ---------------- RECRUIT PREVIEW (unit stats on hover) ---------------- */
+  _buildRecruitPreview() {
+    this.preview = make('div', 'recruit-preview hidden');
+    this.el.appendChild(this.preview);
+  }
+
+  _showPreview(id, card) {
+    const u = UNIT_TYPES.find((t) => t.id === id);
+    if (!u || !this.preview) return;
+    const w = WEAPONS[u.id] || {};
+    const role = ROLE_BY_UNIT[u.id] || 'MIDDLE';
+    const roleCls = role === 'FRONT' ? 'rp-front' : role === 'BACK' ? 'rp-back' : 'rp-mid';
+    const trait = {
+      rifleman: 'Cheap line infantry', gunner: 'Sustained fire', heavy: 'Front-line shield',
+      grenadier: 'Arcing splash', flamethrower: 'Short-range torrent', sniper: 'High crit chance',
+      rpg: 'Anti-armor rocket', tank: 'Explosive shell', artillery: 'Cross-lane barrage'
+    }[u.id] || '';
+    this.preview.innerHTML = `
+      <div class="rp-head"><b>${u.name}</b><span class="rp-role ${roleCls}">${role}</span></div>
+      <div class="rp-trait">${trait}</div>
+      <div class="rp-grid mono">
+        <span>HP</span><b>${u.hp}</b>
+        <span>DMG</span><b>${u.dmg}</b>
+        <span>RNG</span><b>${u.range}</b>
+        <span>RATE</span><b>${(1 / u.rate).toFixed(1)}/s</b>
+        <span>SUPPLY</span><b>${u.supply}</b>
+        <span>DMG TYPE</span><b class="rp-kind">${(w.kind || 'kinetic').toUpperCase()}</b>
+      </div>
+      <div class="rp-cost mono">COST <b>${u.cost} CR</b> · [${u.hotkey}]</div>`;
+    const rect = card.getBoundingClientRect();
+    const stage = this.el.getBoundingClientRect();
+    this.preview.style.left = `${Math.max(8, Math.min(rect.left - stage.left + rect.width / 2 - 110, stage.width - 228))}px`;
+    this.preview.style.bottom = `${stage.height - (rect.top - stage.top) + 10}px`;
+    this.preview.classList.remove('hidden');
+  }
+
+  _hidePreview() {
+    if (this.preview) this.preview.classList.add('hidden');
+  }
+
   _bind() {
     Object.entries(this.cards).forEach(([id, card]) => {
       on(card, 'click', () => EventBus.emit('buy:unit', { id }));
-      on(card, 'mouseenter', () => { if (!card.classList.contains('is-disabled')) AudioFX.sfx('hover'); });
+      on(card, 'mouseenter', () => {
+        if (!card.classList.contains('is-disabled')) AudioFX.sfx('hover');
+        this._showPreview(id, card);
+      });
+      on(card, 'mouseleave', () => this._hidePreview());
     });
     on(this.refs.ability, 'click', () => EventBus.emit('ability:use', { id: ABILITY.id }));
     on(this.refs.ability, 'mouseenter', () => AudioFX.sfx('hover'));

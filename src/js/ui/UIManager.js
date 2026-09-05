@@ -300,7 +300,14 @@ const UIManager = {
     EventBus.on('screen:changed', ({ id, stack }) => {
       this.stage.classList.toggle('ambience-on', id === 'main-menu' || id === 'loading' || id === 'results' || id === 'art-bible');
       this.stage.classList.toggle('battle-cursor', stack && stack[0] === 'battle');
+      // adaptive score: menu bed on hub screens (battle/results drive their own)
+      if (id === 'main-menu' || id === 'loading' || id === 'art-bible') AudioFX.startMusic('menu');
     });
+
+    // unlock WebAudio on first user gesture
+    const unlockAudio = () => AudioFX.unlock();
+    window.addEventListener('pointerdown', unlockAudio, { once: true });
+    window.addEventListener('keydown', unlockAudio, { once: true });
   },
 
   _pauseBattle() {

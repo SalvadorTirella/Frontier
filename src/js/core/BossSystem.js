@@ -12,6 +12,7 @@
 import EventBus from './EventBus.js';
 import { BOSS_TEMPLATES, WEAPONS, BATTLE } from './Config.js';
 import { rand } from '../utils/DOMUtils.js';
+import AudioFX from '../utils/AudioUtils.js';
 
 export default class BossSystem {
   /**
@@ -61,10 +62,11 @@ export default class BossSystem {
     this.hooks.battle.entities.push(boss);
     this.hooks.battle.hud.setBoss(def.name, 1);
 
-    // cinematic entrance: slow-mo + zoom + shake (battle owns timeScale)
+    // cinematic entrance: slow-mo + zoom + shake + shockwave
     this.hooks.battle.beginCinematic(1.7);
     this.hooks.scene.cameraZoom(24, 1.7);
     this.hooks.scene.shake(1.0);
+    this.hooks.scene.bossShockwave({ x, z }, 1.6);
     EventBus.emit('boss:entrance', { name: def.name });
   }
 
@@ -95,6 +97,9 @@ export default class BossSystem {
     if (idx !== boss.phaseIdx) {
       boss.phaseIdx = idx;
       scene.shake(0.8);
+      scene.bossShockwave({ x: boss.x, z: boss.z }, 1.2);
+      AudioFX.sfx('phase');
+      AudioFX.sfx('roar');
       EventBus.emit('boss:phase', { name: def.name, phase: idx + 1 });
       battle.hud.announce(`WARBRINGER — PHASE ${idx + 1}`, 'announce-danger');
     }
@@ -134,6 +139,7 @@ export default class BossSystem {
         }
         const r = 3.3;
         scene.telegraphArea(px, pz, r, 1.15);
+        AudioFX.sfx('telegraph');
         this.strikes.push({ x: px, z: pz, r, t: 1.15, dmg: boss.dmg * 0.95 });
         boss.atkCd = phase.rate * 1.15;
         break;
@@ -141,6 +147,7 @@ export default class BossSystem {
       case 'lance': {
         const t = this._nearest(players, boss);
         if (t) {
+          AudioFX.sfx('beam');
           combat.fire({
             weapon: { proj: 'beam', kind: 'explosive', splash: 2.3, variance: 0.1, crit: 0 },
             side: 'enemy',

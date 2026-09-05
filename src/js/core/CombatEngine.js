@@ -50,6 +50,7 @@ export default class CombatEngine {
       kind: weapon.proj,
       dmgKind: weapon.kind,
       side,
+      hue: weapon.hue || null,
       source: spec.source || null,
       target: target || null,
       x: from.x, y: from.y, z: from.z,
@@ -127,7 +128,7 @@ export default class CombatEngine {
     }
 
     if (p.kind !== 'beam') {
-      p.mesh = this.hooks.scene.projectileMesh(p.kind, side);
+      p.mesh = this.hooks.scene.projectileMesh(p.kind, side, p.hue);
       if (p.mesh) p.mesh.position.set(p.x, p.y, p.z);
     }
     this.projectiles.push(p);

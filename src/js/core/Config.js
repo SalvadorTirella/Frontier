@@ -139,16 +139,16 @@ export const LANE_KEYS = ['KeyQ', 'KeyW', 'KeyE', 'KeyR', 'KeyT'];
 
 /** Weapon profile per unit — projectile class, damage kind, ballistics */
 export const WEAPONS = {
-  rifleman:     { proj: 'bullet',   kind: 'kinetic',   speed: 55,  variance: 0.16, crit: 0.06 },
-  gunner:       { proj: 'bullet',   kind: 'kinetic',   speed: 62,  variance: 0.12, crit: 0.05 },
-  heavy:        { proj: 'bullet',   kind: 'kinetic',   speed: 58,  variance: 0.14, crit: 0.05 },
-  grenadier:    { proj: 'grenade',  kind: 'explosive', speed: 17,  splash: 2.0, variance: 0.1,  crit: 0 },
-  flamethrower: { proj: 'bullet',   kind: 'fire',      speed: 42,  variance: 0.3,  crit: 0.02 },
-  sniper:       { proj: 'bullet',   kind: 'kinetic',   speed: 110, variance: 0.08, crit: 0.18 },
-  rpg:          { proj: 'rocket',   kind: 'explosive', speed: 24,  splash: 2.4, variance: 0.1,  crit: 0 },
-  tank:         { proj: 'rocket',   kind: 'explosive', speed: 21,  splash: 3.0, variance: 0.1,  crit: 0.04 },
-  artillery:    { proj: 'grenade',  kind: 'explosive', speed: 15,  splash: 4.4, variance: 0.2,  crit: 0.03 },
-  boss:         { proj: 'rocket',   kind: 'explosive', speed: 18,  splash: 3.4, variance: 0.12, crit: 0 }
+  rifleman:     { proj: 'bullet',   kind: 'kinetic',   speed: 55,  variance: 0.16, crit: 0.06, hue: 'cyan' },
+  gunner:       { proj: 'bullet',   kind: 'kinetic',   speed: 62,  variance: 0.12, crit: 0.05, hue: 'cyan' },
+  heavy:        { proj: 'bullet',   kind: 'kinetic',   speed: 58,  variance: 0.14, crit: 0.05, hue: 'amber' },
+  grenadier:    { proj: 'grenade',  kind: 'explosive', speed: 17,  splash: 2.0, variance: 0.1,  crit: 0, hue: 'magma' },
+  flamethrower: { proj: 'bullet',   kind: 'fire',      speed: 42,  variance: 0.3,  crit: 0.02, hue: 'magma' },
+  sniper:       { proj: 'bullet',   kind: 'kinetic',   speed: 110, variance: 0.08, crit: 0.18, hue: 'ice' },
+  rpg:          { proj: 'rocket',   kind: 'explosive', speed: 24,  splash: 2.4, variance: 0.1,  crit: 0, hue: 'magma' },
+  tank:         { proj: 'rocket',   kind: 'explosive', speed: 21,  splash: 3.0, variance: 0.1,  crit: 0.04, hue: 'amber' },
+  artillery:    { proj: 'grenade',  kind: 'explosive', speed: 15,  splash: 4.4, variance: 0.2,  crit: 0.03, hue: 'amber' },
+  boss:         { proj: 'rocket',   kind: 'explosive', speed: 18,  splash: 3.4, variance: 0.12, crit: 0, hue: 'violet' }
 };
 
 /** Damage-kind resistance table (tank shrugs off kinetic, fears explosive) */
