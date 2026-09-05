@@ -1936,7 +1936,6 @@ export default class SceneController {
       // fire recoil — kicks the rig backward then recovers
       if (u.recoil > 0) {
         u.recoil = Math.max(0, u.recoil - dt * 5);
-        u.root.position.z -= 0; // visual kick applied to child via scale below
         const k = u.recoil;
         u.root.scaling.z = 1 - k * 0.08;
         u.root.scaling.x = 1 + k * 0.05;
