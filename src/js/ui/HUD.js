@@ -15,6 +15,11 @@ const ICONS = {
   gunner: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="7.2"/><path d="M12 1.8v4M12 18.2v4M1.8 12h4M18.2 12h4" stroke-linecap="round"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/></svg>`,
   tank: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M13.5 9.5H8.8L7 12.6h6.5z"/><path d="M13.5 10.6h7" stroke-linecap="round"/><rect x="3" y="12.6" width="18" height="4.6" rx="1.2"/><circle cx="7" cy="19.6" r="1.5"/><circle cx="12" cy="19.6" r="1.5"/><circle cx="17" cy="19.6" r="1.5"/></svg>`,
   artillery: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M9.5 14.5 17 4.8l2.2 1.7-7.2 9.4z"/><path d="M5 20.5h14" stroke-linecap="round"/><path d="M7.5 17.5h6" stroke-linecap="round"/><circle cx="18.6" cy="3.4" r="1.1" fill="currentColor" stroke="none"/></svg>`,
+  heavy: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2.8c3.6 0 6.5 1.2 8 2.4v7c0 4.8-3.4 8-8 9.4-4.6-1.4-8-4.6-8-9.4v-7c1.5-1.2 4.4-2.4 8-2.4z" stroke-linejoin="round"/><path d="M12 7v6.5M8.8 10.2h6.4" stroke-linecap="round"/></svg>`,
+  grenadier: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="9.5" cy="14.5" r="5.2"/><path d="M9.5 9.3V7.2M9.5 21.8v-2.1M2.2 14.5h2.1M14.7 14.5h2.1" stroke-linecap="round"/><path d="M14.5 9.5 20 4M20 4h-3.4M20 4v3.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  flamethrower: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 21c-3.3 0-5.5-2.3-5.5-5.3 0-2.4 1.6-3.9 2.7-5.3.9-1.1 1.7-2.2 1.7-3.9 2.5 1.4 6.6 5 6.6 9.2 0 3-2.2 5.3-5.5 5.3z" stroke-linejoin="round"/><path d="M12 21c-1.5 0-2.5-1.2-2.5-2.7 0-1.5 1.2-2.4 2.5-3.8 1.3 1.4 2.5 2.3 2.5 3.8 0 1.5-1 2.7-2.5 2.7z"/></svg>`,
+  sniper: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="7.5"/><circle cx="12" cy="12" r="2.2"/><path d="M12 2v3.5M12 18.5V22M2 12h3.5M18.5 12H22" stroke-linecap="round"/></svg>`,
+  rpg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 17.5 14 6.5" stroke-linecap="round"/><path d="M14 6.5l3.5-1-1 3.5L13 12.5z" stroke-linejoin="round"/><path d="M5.5 20l-2.5.5.5-2.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="19.8" cy="4.2" r="1.2" fill="currentColor" stroke="none"/></svg>`,
   airstrike: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2.5 15 15l-3-2.2L9 15z"/><path d="M12 12.8v8.7" stroke-linecap="round"/><path d="M4 8.5h4M3 12h3M4.5 15.5h2.7" stroke-linecap="round" opacity=".7"/></svg>`,
   pause: `<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4.5" width="4" height="15" rx="1"/><rect x="14" y="4.5" width="4" height="15" rx="1"/></svg>`,
   credits: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2.8 20 7v10l-8 4.2L4 17V7z"/><path d="M12 7.5v9M8.5 9.5l7 5M15.5 9.5l-7 5" opacity=".8"/></svg>`,
@@ -126,7 +131,7 @@ export default class HUD {
     reserves.innerHTML = `<span class="block-label">FIELD UNITS</span>`;
     this.reserveSlots = {};
     UNIT_TYPES.forEach((u) => {
-      const slot = make('div', 'reserve-slot chamfer-sm', `${unitIcon(u.id, 22)}<b class="mono" id="res-${u.id}">0</b>`);
+      const slot = make('div', 'reserve-slot chamfer-sm', `${unitIcon(u.id, 15)}<b class="mono" id="res-${u.id}">0</b>`);
       reserves.appendChild(slot);
       this.reserveSlots[u.id] = slot.querySelector('b');
     });
@@ -225,12 +230,17 @@ export default class HUD {
     this.upgradePanel = panel;
     this.el.appendChild(panel);
     on(panel.querySelector('#up-close'), 'click', () => EventBus.emit('upgrades:toggle'));
+    // every non-owned node forwards the click — BattleScreen answers with
+    // real feedback (error SFX + reason toast) instead of dead silence
     panel.addEventListener('click', (ev) => {
       const node = ev.target.closest('[data-up]');
-      if (node && !node.classList.contains('is-bought') && !node.classList.contains('is-locked') && !node.classList.contains('is-poor')) {
+      if (node && !node.classList.contains('is-bought')) {
         EventBus.emit('upgrade:buy', { id: node.dataset.up });
       }
     });
+    panel.addEventListener('mouseenter', (ev) => {
+      if (ev.target.closest && ev.target.closest('.up-node:not(.is-bought)')) AudioFX.sfx('hover');
+    }, true);
   }
 
   /** @param {boolean} open */

@@ -71,7 +71,7 @@ export default class MainMenu {
             <span class="m-arrow">›</span>
           </button>
         </nav>
-        <div class="menu-hints mono" data-anim>[1–4] REQUISITION &nbsp;·&nbsp; [SPACE] AIRSTRIKE &nbsp;·&nbsp; [P] PAUSE &nbsp;·&nbsp; [ESC] BACK</div>
+        <div class="menu-hints mono" data-anim>[1–9] REQUISITION &nbsp;·&nbsp; [Z·X·C] HEROES &nbsp;·&nbsp; [V·B·N·M] STRUCTURES &nbsp;·&nbsp; [U] RESEARCH &nbsp;·&nbsp; [SPACE] AIRSTRIKE</div>
       </div>
       <aside class="menu-right">
         <div class="profile-panel panel-frame chamfer tech-frame amber-c" data-anim>
@@ -135,9 +135,10 @@ export default class MainMenu {
             <div class="manual-grid">
               <div><b class="amber">OBJECTIVE</b><p>Survive all ${BATTLE.finalWave} assault waves and demolish the enemy HQ before your base integrity reaches zero.</p></div>
               <div><b class="cyan">ECONOMY</b><p>Credits flow in automatically and spike with every kill — chain kills fast to stack a <b>COMBO</b> multiplier.</p></div>
-              <div><b class="cyan">REQUISITION [1–4]</b><p>Riflemen are cheap fodder, Gunners sustain fire, Tanks hold the line, Artillery shatters groups from range.</p></div>
-              <div><b class="amber">LANES [Q/W/E · ←→]</b><p>Three parallel corridors. Pick the active lane before buying — or click the battlefield. Units form ranks: tanks lead, infantry holds, artillery supports from the rear.</p></div>
-              <div><b class="cyan">COVER & BALLISTICS</b><p>Sandbags and barricades soak damage and can stop tracers — but shells arc over them. Tanks resist kinetic fire, yet crack under explosives. BACK-row units can land HEADSHOTS on FRONT-row heavies.</p></div>
+              <div><b class="cyan">REQUISITION [1–9]</b><p>FRONT: Heavy (shield) & Tank. MIDDLE: Rifleman, Gunner, Grenadier (arc), Flamer (short-range torrent). BACK: Sniper (crits), RPG (anti-armor), Artillery (cross-lane).</p></div>
+              <div><b class="amber">LANES [Q/W/E · ←→]</b><p>Three parallel corridors. Pick the active lane before buying — or click the battlefield. Units form ranks: heavies lead, infantry holds, specialists support from the rear.</p></div>
+              <div><b class="cyan">COMMAND RAIL</b><p>[Z/X/C] deploy Medic, Vanguard or Warlord heroes — auras, ultimates, one alive each. [V/B/N/M] place sandbags, barricades, turrets and mines. [U] opens Field Research: weapons, armor and logistics upgrades apply to every unit, alive and future.</p></div>
+              <div><b class="cyan">COVER & BALLISTICS</b><p>Sandbags and barricades soak damage and can stop tracers — but shells arc over them. Tanks and Heavies resist kinetic fire, yet crack under explosives; RPGs hunt armor. BACK-row units can land HEADSHOTS on FRONT-row heavies.</p></div>
               <div><b class="red">THE WARBRINGER</b><p>The final wave drops a boss in the center lane. Telegraphed red zones mark its mortar strikes — pull your infantry back and focus fire.</p></div>
               <div><b class="amber">AIRSTRIKE [SPACE]</b><p>Levels a grid square on a 25s cycle. Save it for armored pushes or base sieges.</p></div>
               <div><b class="cyan">SUPPLY</b><p>Every unit consumes supply. A saturated field locks requisition — spend wisely.</p></div>

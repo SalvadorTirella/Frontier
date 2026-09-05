@@ -1046,7 +1046,7 @@ export default class SceneController {
       barY = 2.3 * s;
     } else {
       /* infantry: legs + torso + shoulders + helmet with visor + weapon */
-      const heavy = def.id === 'gunner';
+      const heavy = def.id === 'gunner' || def.id === 'heavy';
       const legs = MeshBuilder.CreateBox('legs', { width: 0.52 * s, height: 0.55 * s, depth: 0.42 * s }, scene);
       legs.position.y = 0.28 * s;
       legs.material = darkMat;
@@ -1101,6 +1101,74 @@ export default class SceneController {
         pack.position.set(0, 1.05 * s, -0.36 * s);
         pack.material = darkMat;
         pack.parent = root;
+      }
+
+      /* ---- class-specific equipment (full roster) ---- */
+      if (def.id === 'heavy') {
+        // front riot shield with emissive plate
+        const shield = MeshBuilder.CreateBox('shield', { width: 0.95 * s, height: 1.05 * s, depth: 0.12 }, scene);
+        shield.position.set(0, 0.88 * s, 0.42 * s);
+        shield.material = bodyMat;
+        shield.parent = root;
+        const plate = MeshBuilder.CreateBox('splate', { width: 0.6 * s, height: 0.42 * s, depth: 0.04 }, scene);
+        plate.position.set(0, 0.98 * s, 0.5 * s);
+        plate.material = this._emissiveMat(`splateM${root.uniqueId}`, accent, 0.55);
+        plate.parent = root;
+        this.shadowGen.addShadowCaster(shield);
+      } else if (def.id === 'sniper') {
+        // long rifle: extended barrel + scope with glowing lens
+        gun.scaling.y = 2.1;
+        gun.position.z = 0.85 * s;
+        const scope = MeshBuilder.CreateCylinder('scope', { diameter: 0.11 * s, height: 0.44 * s }, scene);
+        scope.rotation.x = Math.PI / 2;
+        scope.position.set(0.24 * s, 1.16 * s, 0.72 * s);
+        scope.material = darkMat;
+        scope.parent = root;
+        const lens = MeshBuilder.CreateSphere('lens', { diameter: 0.1 * s }, scene);
+        lens.position.set(0.24 * s, 1.16 * s, 0.96 * s);
+        lens.material = this._emissiveMat(`lensM${root.uniqueId}`, accent, 1.5);
+        lens.parent = root;
+      } else if (def.id === 'rpg') {
+        // shoulder launcher tube with rear blast cone
+        const tube = MeshBuilder.CreateCylinder('tube', { diameter: 0.26 * s, height: 1.35 * s }, scene);
+        tube.rotation.x = Math.PI / 2 - 0.12;
+        tube.position.set(-0.22 * s, 1.44 * s, 0.32 * s);
+        tube.material = darkMat;
+        tube.parent = root;
+        const cone = MeshBuilder.CreateCylinder('tcone', { diameterTop: 0.36 * s, diameterBottom: 0.24 * s, height: 0.26 * s }, scene);
+        cone.rotation.x = Math.PI / 2 - 0.12;
+        cone.position.set(-0.22 * s, 1.36 * s, -0.42 * s);
+        cone.material = bodyMat;
+        cone.parent = root;
+        const sight = MeshBuilder.CreateSphere('tsight', { diameter: 0.09 * s }, scene);
+        sight.position.set(-0.22 * s, 1.62 * s, 0.6 * s);
+        sight.material = this._emissiveMat(`tsightM${root.uniqueId}`, MAGMA, 1.4);
+        sight.parent = root;
+      } else if (def.id === 'grenadier') {
+        // stub launcher angled up + drum magazine
+        gun.rotation.x = Math.PI / 2 - 0.42;
+        gun.scaling.y = 0.85;
+        gun.position.set(0.24 * s, 1.12 * s, 0.5 * s);
+        const drum = MeshBuilder.CreateCylinder('drum', { diameter: 0.3 * s, height: 0.26 * s }, scene);
+        drum.position.set(0.24 * s, 0.98 * s, 0.42 * s);
+        drum.material = bodyMat;
+        drum.parent = root;
+      } else if (def.id === 'flamethrower') {
+        // twin fuel tanks on the back + pilot flame at the wide nozzle
+        gun.scaling.x = 1.8;
+        gun.scaling.z = 1.8;
+        [-0.26, 0.06].forEach((ox, i) => {
+          const ftank = MeshBuilder.CreateCylinder(`ftank${i}`, { diameter: 0.26 * s, height: 0.85 * s }, scene);
+          ftank.position.set(ox * s, 1.05 * s, -0.38 * s);
+          ftank.material = bodyMat;
+          ftank.parent = root;
+        });
+        const pilot = MeshBuilder.CreateSphere('pilot', { diameter: 0.17 * s }, scene);
+        pilot.position.set(0.24 * s, 1.0 * s, 1.12 * s);
+        const pilotMat = this._emissiveMat(`pilotM${root.uniqueId}`, MAGMA, 1.9);
+        pilot.material = pilotMat;
+        pilot.parent = root;
+        this._blinkers.push({ mat: pilotMat, base: MAGMA.clone(), speed: 7, phase: Math.random() * 3 });
       }
       this.shadowGen.addShadowCaster(torso);
       barY = 2.25 * s;

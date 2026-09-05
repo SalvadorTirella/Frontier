@@ -913,13 +913,26 @@ export default class BattleScreen {
     if (!this.running || this.paused || this.ending) return;
     const node = this.upgradeSys.node(id);
     if (!node) return;
-    if (!this.upgradeSys.canBuy(id)) { AudioFX.sfx('error'); return; }
+    if (this.upgradeSys.isPurchased(id)) { AudioFX.sfx('error'); return; }
+    if (node.req && !this.upgradeSys.isPurchased(node.req)) {
+      AudioFX.sfx('error');
+      modalManager.toast('RESEARCH LOCKED — REQUIRES PREVIOUS NODE', 'warn');
+      return;
+    }
+    if (this.credits < node.cost) {
+      AudioFX.sfx('error');
+      modalManager.toast(`INSUFFICIENT CREDITS — NEED ${node.cost}`, 'warn');
+      this.hud.gainFlash();
+      return;
+    }
     this.credits -= node.cost;
     this.upgradeSys.buy(id);
     this.hud.setCredits(this.credits);
     this.hud.setSupply(this.supplyUsed, this.supplyCapEff);
     this._refreshUpgradePanel();
+    this._refreshCommandRail();
     AudioFX.sfx('combo');
+    modalManager.toast(`${node.name} ONLINE`, 'ok');
     this.hud.announce(`RESEARCH COMPLETE — ${node.name}`, 'announce-ally');
   }
 

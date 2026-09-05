@@ -16,7 +16,7 @@ import SceneController from '../render/SceneController.js';
 import AudioFX from '../utils/AudioUtils.js';
 import { make, on, setTxt, rand } from '../utils/DOMUtils.js';
 import { animateNumber, staggerIn } from '../utils/AnimationUtils.js';
-import { BASE_W, BASE_H, BATTLE, rankForXp, LANE_KEYS } from '../core/Config.js';
+import { BASE_W, BASE_H, BATTLE, rankForXp, LANE_KEYS, UNIT_TYPES } from '../core/Config.js';
 import { fmtTime } from '../utils/DOMUtils.js';
 
 const UIManager = {
@@ -331,17 +331,20 @@ const UIManager = {
       }
       if (!this.screens.is('battle') && !this.screens.stack.includes('battle')) return;
       if (this.screens.stack.includes('pause') || this.screens.stack.includes('settings') || this.screens.stack.includes('art-bible')) return;
-      const map = { Digit1: 'rifleman', Digit2: 'gunner', Digit3: 'tank', Digit4: 'artillery' };
-      if (map[e.code]) { EventBus.emit('buy:unit', { id: map[e.code] }); e.preventDefault(); }
+      // roster hotkeys 1–9 (driven by UNIT_TYPES.hotkey)
+      if (/^Digit[1-9]$/.test(e.code)) {
+        const u = UNIT_TYPES.find((t) => t.hotkey === e.code.slice(5));
+        if (u) { EventBus.emit('buy:unit', { id: u.id }); e.preventDefault(); }
+      }
       if (e.code === 'Space') { EventBus.emit('ability:use'); e.preventDefault(); }
       const laneIdx = LANE_KEYS.indexOf(e.code);
       if (laneIdx >= 0) { EventBus.emit('lane:select', { id: laneIdx }); e.preventDefault(); }
       if (e.code === 'ArrowLeft') { EventBus.emit('lane:shift', { dir: -1 }); e.preventDefault(); }
       if (e.code === 'ArrowRight') { EventBus.emit('lane:shift', { dir: 1 }); e.preventDefault(); }
-      // Milestone 4: heroes (Z/X/C), structures (5-8), research (U), cancel placement (Esc)
+      // heroes (Z/X/C) · structures (V/B/N/M) · research (U)
       const heroMap = { KeyZ: 'medic', KeyX: 'assault', KeyC: 'support' };
       if (heroMap[e.code]) { EventBus.emit('hero:deploy', { id: heroMap[e.code] }); e.preventDefault(); }
-      const structMap = { Digit5: 'sandbag', Digit6: 'barricade', Digit7: 'turret', Digit8: 'mine' };
+      const structMap = { KeyV: 'sandbag', KeyB: 'barricade', KeyN: 'turret', KeyM: 'mine' };
       if (structMap[e.code]) { EventBus.emit('structure:select', { id: structMap[e.code] }); e.preventDefault(); }
       if (e.code === 'KeyU') { EventBus.emit('upgrades:toggle'); e.preventDefault(); }
     };

@@ -184,17 +184,18 @@
 }
 
 /* ---------- reserves ---------- */
+/* 3×3 grid — one chip per roster class */
 .reserves {
   display: grid;
-  grid-template-columns: repeat(4, 58px);
-  gap: 8px;
+  grid-template-columns: repeat(3, 46px);
+  gap: 5px;
 }
-.reserves .block-label { grid-column: 1 / -1; margin-bottom: 2px; }
+.reserves .block-label { grid-column: 1 / -1; margin-bottom: 1px; }
 .reserve-slot {
   position: relative;
   display: inline-grid;
   place-items: center;
-  width: 58px; height: 62px;
+  width: 46px; height: 30px;
   clip-path: var(--clip-notch);
   background:
     var(--tex-grid),
@@ -313,18 +314,25 @@
 .lane-chip:active { transform: translateY(0) scale(0.94); }
 
 /* ---------- shop ---------- */
-.shop { display: flex; align-items: flex-end; gap: 12px; position: relative; }
-.shop .block-label { position: absolute; top: 2px; left: 2px; z-index: 2; }
+/* 9-class requisition grid */
+.shop {
+  display: grid;
+  grid-template-columns: repeat(9, minmax(0, 1fr));
+  gap: 6px;
+  width: 708px;
+  position: relative;
+  align-items: stretch;
+}
+.shop .block-label { position: absolute; top: -16px; right: 2px; z-index: 2; }
 .buy-card {
   position: relative;
   display: grid;
-  grid-template-columns: 40px 1fr;
-  grid-template-rows: auto auto auto;
-  column-gap: 10px;
+  grid-template-columns: 30px 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 7px;
   align-items: center;
-  width: 168px; height: 88px;
-  margin-top: 14px;
-  padding: 8px 12px;
+  width: auto; min-width: 0; height: 86px;
+  padding: 6px 7px;
   text-align: left;
   color: var(--ink);
   clip-path: var(--clip-button);
@@ -338,14 +346,15 @@
   box-shadow: inset 0 1px 0 rgba(143, 231, 255, 0.12), inset 0 -10px 18px rgba(0, 0, 0, 0.35);
   transition: transform 0.16s var(--ease), filter 0.2s;
 }
-.buy-card .card-icon { grid-row: 1 / 4; color: var(--cyan-hi); filter: drop-shadow(0 0 7px rgba(0, 198, 255, 0.45)); }
-.buy-card .card-name { font-weight: 700; font-size: 15px; letter-spacing: 0.16em; line-height: 1.1; color: var(--text-primary); }
-.buy-card .card-cost { font-size: 15px; color: var(--amber); letter-spacing: 0.1em; text-shadow: 0 0 10px var(--amber-gold-glow); }
-.buy-card .card-stats { font-size: 9.5px; letter-spacing: 0.12em; color: var(--text-secondary); }
+.buy-card .card-icon { grid-row: 1 / 3; color: var(--cyan-hi); filter: drop-shadow(0 0 7px rgba(0, 198, 255, 0.45)); align-self: center; }
+.buy-card .card-icon .uicon { width: 22px !important; height: 22px !important; }
+.buy-card .card-name { font-weight: 700; font-size: 10px; letter-spacing: 0.1em; line-height: 1.1; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.buy-card .card-cost { font-size: 12px; color: var(--amber); letter-spacing: 0.06em; text-shadow: 0 0 10px var(--amber-gold-glow); }
+.buy-card .card-stats { display: none; }
 .buy-card .card-hotkey {
   position: absolute;
-  top: 5px; right: 7px;
-  font-size: 11px;
+  bottom: 4px; right: 5px;
+  font-size: 9px;
   color: var(--cyan);
   border: 1px solid var(--cyan-dim);
   padding: 1px 5px;
@@ -612,10 +621,12 @@
   top: 50%;
   transform: translate(120%, -50%);
   width: 330px;
-  max-height: 620px;
+  max-height: 560px;
   display: flex;
   flex-direction: column;
   padding: 14px;
+  z-index: 40; /* above hud-top / hud-bottom (z:8) and banners */
+  pointer-events: auto;
   border: 1px solid var(--amber-dim, rgba(255, 215, 0, 0.3));
   clip-path: polygon(18px 0, 100% 0, 100% 100%, 0 100%, 0 18px);
   transition: transform 0.4s var(--ease);
@@ -633,7 +644,17 @@
 }
 .up-close:hover { color: var(--red); border-color: var(--red); }
 
-.up-branches { display: flex; flex-direction: column; gap: 14px; overflow-y: auto; padding-right: 4px; }
+.up-branches {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow-y: auto;
+  padding-right: 4px;
+  flex: 1 1 auto;
+  min-height: 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--amber-dim, rgba(255, 215, 0, 0.3)) transparent;
+}
 .up-branch { display: flex; flex-direction: column; gap: 6px; }
 .up-branch-label { font-size: 11px; font-weight: 700; letter-spacing: 0.3em; color: var(--neon-cyan); border-bottom: 1px solid var(--border-panel); padding-bottom: 4px; }
 

@@ -64,12 +64,17 @@ export const ART_ASSETS = {
   units: 'https://image.qwenlm.ai/generated-images/74d5091a-548e-4fe5-9d65-173cb29fc712/_result.png'
 };
 
-/* ---------- UNIT ROSTER ---------- */
+/* ---------- UNIT ROSTER (9 classes · FRONT / MIDDLE / BACK) ---------- */
 export const UNIT_TYPES = [
-  { id: 'rifleman',  name: 'RIFLEMAN',  cost: 100, hp: 78,  dmg: 9,  range: 8,  rate: 0.85, speed: 3.5,  supply: 1, size: 1.0,  hotkey: '1' },
-  { id: 'gunner',    name: 'GUNNER',    cost: 240, hp: 135, dmg: 16, range: 9,  rate: 0.55, speed: 2.8,  supply: 2, size: 1.12, hotkey: '2' },
-  { id: 'tank',      name: 'TANK',      cost: 520, hp: 380, dmg: 34, range: 7,  rate: 1.35, speed: 1.75, supply: 4, size: 1.5,  hotkey: '3' },
-  { id: 'artillery', name: 'ARTILLERY', cost: 850, hp: 170, dmg: 62, range: 14, rate: 2.2,  speed: 1.35, supply: 3, size: 1.22, hotkey: '4', splash: 2.7, crossLane: true }
+  { id: 'rifleman',     name: 'RIFLEMAN',     cost: 100, hp: 78,  dmg: 9,  range: 8,   rate: 0.85, speed: 3.5,  supply: 1, size: 1.0,  hotkey: '1' },
+  { id: 'gunner',       name: 'GUNNER',       cost: 240, hp: 135, dmg: 16, range: 9,   rate: 0.55, speed: 2.8,  supply: 2, size: 1.12, hotkey: '2' },
+  { id: 'heavy',        name: 'HEAVY',        cost: 400, hp: 310, dmg: 22, range: 6.5, rate: 1.05, speed: 2.1,  supply: 3, size: 1.3,  hotkey: '3' },
+  { id: 'grenadier',    name: 'GRENADIER',    cost: 320, hp: 100, dmg: 30, range: 9.5, rate: 1.6,  speed: 3.0,  supply: 2, size: 1.02, hotkey: '4' },
+  { id: 'flamethrower', name: 'FLAMER',       cost: 280, hp: 115, dmg: 5,  range: 5.2, rate: 0.16, speed: 3.2,  supply: 2, size: 1.04, hotkey: '5' },
+  { id: 'sniper',       name: 'SNIPER',       cost: 480, hp: 72,  dmg: 58, range: 16,  rate: 2.4,  speed: 2.6,  supply: 2, size: 0.98, hotkey: '6' },
+  { id: 'rpg',          name: 'RPG',          cost: 540, hp: 118, dmg: 50, range: 11,  rate: 2.1,  speed: 2.7,  supply: 3, size: 1.06, hotkey: '7' },
+  { id: 'tank',         name: 'TANK',         cost: 520, hp: 380, dmg: 34, range: 7,   rate: 1.35, speed: 1.75, supply: 4, size: 1.5,  hotkey: '8' },
+  { id: 'artillery',    name: 'ARTILLERY',    cost: 850, hp: 170, dmg: 62, range: 14,  rate: 2.2,  speed: 1.35, supply: 3, size: 1.22, hotkey: '9', splash: 2.7, crossLane: true }
 ];
 
 export const ABILITY = { id: 'airstrike', name: 'AIRSTRIKE', cooldown: 25, dmg: 150, radius: 6.5, hotkey: 'SPACE' };
@@ -102,9 +107,14 @@ export const LANE_CONFIG = {
 };
 
 export const ROLE_BY_UNIT = {
+  heavy: 'FRONT',
   tank: 'FRONT',
   rifleman: 'MIDDLE',
   gunner: 'MIDDLE',
+  grenadier: 'MIDDLE',
+  flamethrower: 'MIDDLE',
+  sniper: 'BACK',
+  rpg: 'BACK',
   artillery: 'BACK'
 };
 
@@ -129,20 +139,30 @@ export const LANE_KEYS = ['KeyQ', 'KeyW', 'KeyE', 'KeyR', 'KeyT'];
 
 /** Weapon profile per unit — projectile class, damage kind, ballistics */
 export const WEAPONS = {
-  rifleman: { proj: 'bullet', kind: 'kinetic', speed: 55, variance: 0.16, crit: 0.06 },
-  gunner: { proj: 'bullet', kind: 'kinetic', speed: 62, variance: 0.12, crit: 0.05 },
-  tank: { proj: 'rocket', kind: 'explosive', speed: 21, splash: 3.0, variance: 0.1, crit: 0.04 },
-  artillery: { proj: 'grenade', kind: 'explosive', speed: 15, splash: 4.4, variance: 0.2, crit: 0.03 },
-  boss: { proj: 'rocket', kind: 'explosive', speed: 18, splash: 3.4, variance: 0.12, crit: 0 }
+  rifleman:     { proj: 'bullet',   kind: 'kinetic',   speed: 55,  variance: 0.16, crit: 0.06 },
+  gunner:       { proj: 'bullet',   kind: 'kinetic',   speed: 62,  variance: 0.12, crit: 0.05 },
+  heavy:        { proj: 'bullet',   kind: 'kinetic',   speed: 58,  variance: 0.14, crit: 0.05 },
+  grenadier:    { proj: 'grenade',  kind: 'explosive', speed: 17,  splash: 2.0, variance: 0.1,  crit: 0 },
+  flamethrower: { proj: 'bullet',   kind: 'fire',      speed: 42,  variance: 0.3,  crit: 0.02 },
+  sniper:       { proj: 'bullet',   kind: 'kinetic',   speed: 110, variance: 0.08, crit: 0.18 },
+  rpg:          { proj: 'rocket',   kind: 'explosive', speed: 24,  splash: 2.4, variance: 0.1,  crit: 0 },
+  tank:         { proj: 'rocket',   kind: 'explosive', speed: 21,  splash: 3.0, variance: 0.1,  crit: 0.04 },
+  artillery:    { proj: 'grenade',  kind: 'explosive', speed: 15,  splash: 4.4, variance: 0.2,  crit: 0.03 },
+  boss:         { proj: 'rocket',   kind: 'explosive', speed: 18,  splash: 3.4, variance: 0.12, crit: 0 }
 };
 
 /** Damage-kind resistance table (tank shrugs off kinetic, fears explosive) */
 export const RESIST = {
-  rifleman: { kinetic: 1.0, explosive: 0.9 },
-  gunner: { kinetic: 0.95, explosive: 0.9 },
-  tank: { kinetic: 0.55, explosive: 1.2 },
-  artillery: { kinetic: 0.85, explosive: 1.1 },
-  warbringer: { kinetic: 0.7, explosive: 0.95 }
+  rifleman:     { kinetic: 1.0,  explosive: 0.9,  fire: 1.05 },
+  gunner:       { kinetic: 0.95, explosive: 0.9,  fire: 1.0 },
+  heavy:        { kinetic: 0.8,  explosive: 1.2,  fire: 0.95 },
+  grenadier:    { kinetic: 1.05, explosive: 0.95, fire: 1.0 },
+  flamethrower: { kinetic: 1.1,  explosive: 1.0,  fire: 0.6 },
+  sniper:       { kinetic: 1.15, explosive: 1.05, fire: 1.0 },
+  rpg:          { kinetic: 1.0,  explosive: 0.9,  fire: 1.0 },
+  tank:         { kinetic: 0.55, explosive: 1.2,  fire: 0.85 },
+  artillery:    { kinetic: 0.85, explosive: 1.1,  fire: 1.0 },
+  warbringer:   { kinetic: 0.7,  explosive: 0.95, fire: 0.9 }
 };
 
 export const CRIT_MULT = 1.8;
@@ -203,15 +223,15 @@ export const HERO_TYPES = [
 
 /** Placeable defensive structures — sandbag/barricade double as cover */
 export const STRUCTURE_TYPES = [
-  { id: 'sandbag', name: 'SANDBAG WALL', cost: 60, supply: 1, isCover: true, hotkey: '5' },
-  { id: 'barricade', name: 'BARRICADE', cost: 120, supply: 2, isCover: true, hotkey: '6' },
+  { id: 'sandbag', name: 'SANDBAG WALL', cost: 60, supply: 1, isCover: true, hotkey: 'V' },
+  { id: 'barricade', name: 'BARRICADE', cost: 120, supply: 2, isCover: true, hotkey: 'B' },
   {
     id: 'turret', name: 'AUTO TURRET', cost: 220, supply: 3, isCover: false,
-    hp: 320, dmg: 15, range: 13, rate: 0.5, w: 1.2, d: 1.2, h: 1.7, hotkey: '7'
+    hp: 320, dmg: 15, range: 13, rate: 0.5, w: 1.2, d: 1.2, h: 1.7, hotkey: 'N'
   },
   {
     id: 'mine', name: 'PROXIMITY MINE', cost: 90, supply: 1, isCover: false,
-    hp: 50, dmg: 150, radius: 3.4, w: 0.9, d: 0.9, h: 0.3, hotkey: '8'
+    hp: 50, dmg: 150, radius: 3.4, w: 0.9, d: 0.9, h: 0.3, hotkey: 'M'
   }
 ];
 
