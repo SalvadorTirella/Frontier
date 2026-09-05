@@ -1,5 +1,5 @@
 /* ============================================================
-   TACTICAL ARMY BATTLE — escenario RETRATO (9:16), letterbox y a11y
+   TACTICAL ARMY BATTLE — stage scaling, letterbox, a11y
    ============================================================ */
 
 #viewport {
@@ -7,16 +7,15 @@
   inset: 0;
   display: grid;
   place-items: center;
-  background: radial-gradient(900px 900px at 50% 50%, #08131f 0%, #000 75%);
+  background:
+    radial-gradient(1100px 640px at 50% 46%, #08131f 0%, #000 72%);
   overflow: hidden;
 }
 
-/* Escenario vertical 720×1280. Se escala uniformemente para caber en la
-   ventana manteniendo la proporción táctica (letterbox adaptativo).      */
 #app-stage {
   position: relative;
-  width: 720px;
-  height: 1280px;
+  width: 1280px;
+  height: 720px;
   background: var(--bg0);
   transform: scale(var(--stage-scale, 1));
   overflow: hidden;
@@ -26,8 +25,8 @@
 #render-canvas {
   position: absolute;
   inset: 0;
-  width: 720px;
-  height: 1280px;
+  width: 1280px;
+  height: 720px;
   display: block;
   z-index: 0;
   outline: none;
@@ -47,13 +46,14 @@
 
 .battle-cursor { cursor: crosshair; }
 
-/* viñeta cinematográfica + scanlines */
+/* cinematic vignette + scanlines over everything */
 #vignette {
   position: absolute;
   inset: 0;
   z-index: 20;
   pointer-events: none;
-  background: radial-gradient(ellipse at 50% 45%, transparent 52%, rgba(0, 0, 0, 0.55) 100%);
+  background:
+    radial-gradient(ellipse at 50% 48%, transparent 52%, rgba(0, 0, 0, 0.5) 100%);
 }
 #vignette::after {
   content: '';
@@ -67,7 +67,7 @@
   mix-blend-mode: overlay;
 }
 
-/* ---------- clases de calidad en <body> ---------- */
+/* ---------- quality body classes ---------- */
 body.no-particles .css-particles { display: none; }
 
 body.no-glow * { text-shadow: none !important; }
@@ -78,9 +78,10 @@ body.no-bganim #screen-loading::before { animation: none; }
 body.no-bganim #screen-loading::after { display: none; }
 body.no-bganim #vignette::after { display: none; }
 body.no-bganim .load-bar b { animation: none; }
+body.no-bganim .avatar-scan { display: none; }
 body.no-bganim .blink-dot { animation: none; }
 
-/* ---------- accesibilidad de movimiento ---------- */
+/* ---------- motion accessibility ---------- */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
@@ -89,8 +90,14 @@ body.no-bganim .blink-dot { animation: none; }
   }
 }
 
-/* ---------- pantallas muy pequeñas ---------- */
-@media (max-width: 400px) {
-  :root { --hud-top: 64px; --hud-bottom: 132px; }
-  .buy-card { width: 150px; }
+/* ---------- portrait lock ---------- */
+@media (orientation: portrait) {
+  #rotate-overlay { display: grid; }
+}
+
+/* ---------- very small landscape phones ---------- */
+@media (max-height: 420px) and (orientation: landscape) {
+  :root { --hud-top: 66px; --hud-bottom: 104px; }
+  .buy-card { width: 148px; height: 80px; }
+  .menu-title { font-size: 46px; }
 }
