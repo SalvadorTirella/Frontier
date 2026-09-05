@@ -331,9 +331,23 @@ const UIManager = {
     window.addEventListener('keydown', onKey);
     this.disposers.push(() => window.removeEventListener('keydown', onKey));
 
-    const onResize = () => this._fit();
-    window.addEventListener('resize', onResize);
-    this.disposers.push(() => window.removeEventListener('resize', onResize));
+    let resizeTimer = null;
+    const scheduleFit = () => {
+      if (resizeTimer) clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        this._fit();
+        if (this.scene.engine) this.scene.resize();
+      }, 80);
+    };
+    window.addEventListener('resize', scheduleFit);
+    window.addEventListener('orientationchange', scheduleFit);
+    if (window.visualViewport) window.visualViewport.addEventListener('resize', scheduleFit);
+    this.disposers.push(() => {
+      window.removeEventListener('resize', scheduleFit);
+      window.removeEventListener('orientationchange', scheduleFit);
+      if (window.visualViewport) window.visualViewport.removeEventListener('resize', scheduleFit);
+    });
+    setTimeout(() => this._fit(), 0);
 
     const onFs = () => {
       this._fit();
@@ -394,8 +408,15 @@ const UIManager = {
   },
 
   _fit() {
-    const s = Math.min(window.innerWidth / BASE_W, window.innerHeight / BASE_H);
-    document.documentElement.style.setProperty('--stage-scale', s.toFixed(4));
+    const vv = window.visualViewport;
+    const w = vv ? vv.width : window.innerWidth;
+    const h = vv ? vv.height : window.innerHeight;
+    const landscape = w >= h;
+    // On small landscape screens (phones), fill the viewport (cover) to avoid
+    // black bars. Larger screens/tablets keep the cinematic letterbox (contain).
+    const useCover = landscape && w < 1024;
+    const s = useCover ? Math.max(w / BASE_W, h / BASE_H) : Math.min(w / BASE_W, h / BASE_H);
+    document.documentElement.style.setProperty('--stage-scale', Math.max(0.1, s).toFixed(4));
   },
 
   toggleFullscreen() {
