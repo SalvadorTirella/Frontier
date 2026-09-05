@@ -127,6 +127,7 @@ export default class MainMenu {
               <div><b class="amber">OBJECTIVE</b><p>Survive all ${BATTLE.finalWave} assault waves and demolish the enemy HQ before your base integrity reaches zero.</p></div>
               <div><b class="cyan">ECONOMY</b><p>Credits flow in automatically and spike with every kill — chain kills fast to stack a <b>COMBO</b> multiplier.</p></div>
               <div><b class="cyan">REQUISITION [1–4]</b><p>Riflemen are cheap fodder, Gunners sustain fire, Tanks hold the line, Artillery shatters groups from range.</p></div>
+              <div><b class="amber">LANES [Q/W/E · ←→]</b><p>Three parallel corridors. Pick the active lane before buying — or click the battlefield. Units form ranks: tanks lead, infantry holds, artillery supports from the rear.</p></div>
               <div><b class="amber">AIRSTRIKE [SPACE]</b><p>Levels a grid square on a 25s cycle. Save it for armored pushes or base sieges.</p></div>
               <div><b class="cyan">SUPPLY</b><p>Every unit consumes supply. A saturated field locks requisition — spend wisely.</p></div>
               <div><b class="cyan">COMMAND [P / ESC]</b><p>Suspends the operation. Settings can be tuned mid-combat without losing progress.</p></div>

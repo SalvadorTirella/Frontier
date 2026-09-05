@@ -5,7 +5,7 @@ import EventBus from '../core/EventBus.js';
 import { make, on, setTxt, pad2 } from '../utils/DOMUtils.js';
 import { animateNumber, retrigger, spawnFloat } from '../utils/AnimationUtils.js';
 import AudioFX from '../utils/AudioUtils.js';
-import { UNIT_TYPES, ABILITY, ECONOMY } from '../core/Config.js';
+import { UNIT_TYPES, ABILITY, ECONOMY, LANE_KEYS } from '../core/Config.js';
 
 const ICONS = {
   rifleman: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2.6c-3.1 0-5.2 2.3-5.2 5.4v2.2h10.4V8c0-3.1-2.1-5.4-5.2-5.4z"/><path d="M6.8 10.2h10.4" stroke-linecap="round"/><path d="M3.6 21.4c.5-4.3 4-6.6 8.4-6.6s7.9 2.3 8.4 6.6z"/></svg>`,
@@ -103,6 +103,13 @@ export default class HUD {
       <span class="ability-cd"></span>`);
     bottom.appendChild(ability);
     this.refs.ability = ability;
+
+    // lane picker (Milestone 2)
+    const lanePicker = make('div', 'lane-picker');
+    lanePicker.innerHTML = `<span class="block-label">DEPLOY LANE</span><div class="lane-chips"></div>`;
+    bottom.appendChild(lanePicker);
+    this.laneChipsEl = lanePicker.querySelector('.lane-chips');
+    on(lanePicker, 'mouseleave', () => EventBus.emit('lane:hover', { id: null }));
 
     const shop = make('div', 'shop');
     shop.innerHTML = `<span class="block-label">REQUISITION</span>`;
@@ -228,6 +235,40 @@ export default class HUD {
     btn.style.setProperty('--cd', ratio.toFixed(3));
     btn.classList.toggle('charging', !ready);
     btn.classList.toggle('ready-pulse', ready);
+  }
+
+  /* ---------------- lane picker (Milestone 2) ---------------- */
+
+  /**
+   * Rebuilds the lane chips for the current topology.
+   * @param {number} count
+   * @param {string[]} [letters]
+   */
+  setLaneCount(count, letters = ['A', 'B', 'C', 'D', 'E']) {
+    if (!this.laneChipsEl) return;
+    this.laneChipsEl.innerHTML = '';
+    this.laneChips = [];
+    const keyLabels = ['Q', 'W', 'E', 'R', 'T'];
+    for (let i = 0; i < count; i++) {
+      const chip = make('button', 'lane-chip chamfer-sm mono', `${letters[i] || i + 1}<span>${keyLabels[i] || ''}</span>`);
+      chip.dataset.lane = i;
+      on(chip, 'click', () => EventBus.emit('lane:select', { id: i }));
+      on(chip, 'mouseenter', () => EventBus.emit('lane:hover', { id: i }));
+      this.laneChipsEl.appendChild(chip);
+      this.laneChips.push(chip);
+    }
+  }
+
+  /** @param {number|null} id */
+  setSelectedLane(id) {
+    if (!this.laneChips) return;
+    this.laneChips.forEach((c, i) => c.classList.toggle('is-selected', i === id));
+  }
+
+  /** @param {number|null} id */
+  setHoverLane(id) {
+    if (!this.laneChips) return;
+    this.laneChips.forEach((c, i) => c.classList.toggle('is-hover', i === id));
   }
 
   showBanner(main, sub = '', cls = '') {

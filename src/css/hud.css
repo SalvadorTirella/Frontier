@@ -229,6 +229,63 @@
 .ability.charging { color: var(--ink-dim); filter: saturate(0.5); }
 .ability.ready-pulse { animation: readyPulse 1.6s ease-in-out infinite; }
 
+/* ---------- lane picker (Milestone 2) ---------- */
+.lane-picker {
+  position: absolute;
+  left: 50%;
+  top: 12px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  pointer-events: auto;
+}
+.lane-picker .block-label { margin-bottom: 0; color: var(--amber); letter-spacing: 0.3em; }
+.lane-chips { display: flex; gap: 8px; }
+.lane-chip {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 42px;
+  font-size: 18px;
+  letter-spacing: 0.05em;
+  color: var(--cyan-hi);
+  clip-path: var(--clip-notch);
+  background:
+    var(--tex-grid),
+    linear-gradient(180deg, rgba(143, 231, 255, 0.07), transparent 45%),
+    linear-gradient(165deg, rgba(10, 22, 38, 0.88), rgba(5, 11, 20, 0.78));
+  border: 1px solid rgba(0, 198, 255, 0.3);
+  box-shadow: inset 0 1px 0 rgba(143, 231, 255, 0.12);
+  transition: transform 0.14s var(--ease), filter 0.14s, border-color 0.14s, color 0.14s;
+}
+.lane-chip span {
+  position: absolute;
+  right: 4px;
+  bottom: 2px;
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  color: var(--text-secondary);
+}
+.lane-chip:hover, .lane-chip.is-hover {
+  transform: translateY(-2px);
+  filter: brightness(1.4);
+  border-color: var(--border-panel-active);
+  box-shadow: 0 0 12px var(--neon-cyan-glow), inset 0 1px 0 rgba(143, 231, 255, 0.15);
+}
+.lane-chip.is-selected {
+  color: #1a1400;
+  background:
+    linear-gradient(180deg, rgba(255, 243, 178, 0.95), rgba(255, 215, 0, 0.82));
+  border-color: var(--amber);
+  box-shadow: 0 0 16px var(--amber-gold-glow), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  text-shadow: none;
+}
+.lane-chip.is-selected span { color: rgba(20, 15, 0, 0.65); }
+.lane-chip:active { transform: translateY(0) scale(0.94); }
+
 /* ---------- shop ---------- */
 .shop { display: flex; align-items: flex-end; gap: 12px; position: relative; }
 .shop .block-label { position: absolute; top: 2px; left: 2px; z-index: 2; }

@@ -10,8 +10,10 @@ import { BABYLON } from '../render/SceneController.js';
 const { Vector3 } = BABYLON || {};
 import { rand, clamp, weightedPick, pad2 } from '../utils/DOMUtils.js';
 import {
-  UNIT_TYPES, ABILITY, ECONOMY, BASES, BATTLE, waveDef, BASE_W, BASE_H
+  UNIT_TYPES, ABILITY, ECONOMY, BASES, BATTLE, waveDef, BASE_W, BASE_H,
+  ROLE_BY_UNIT, FORMATION, LANE_SWITCH
 } from '../core/Config.js';
+import FormationSystem from '../core/FormationSystem.js';
 
 export default class BattleScreen {
   constructor() {
@@ -27,6 +29,46 @@ export default class BattleScreen {
     this.hud.init(el);
     EventBus.on('buy:unit', ({ id }) => this._buy(id));
     EventBus.on('ability:use', () => this._useAbility());
+
+    /* lane control (Milestone 2) */
+    EventBus.on('lane:select', ({ id }) => this._selectLane(id));
+    EventBus.on('lane:shift', ({ dir }) => this._shiftLane(dir));
+    EventBus.on('lane:hover', ({ id }) => {
+      this.ctx.scene.setHoverLane(id);
+      this.hud.setHoverLane(id);
+    });
+    EventBus.on('formation:reformed', () => {}); // hook for future SFX/VFX
+
+    const canvas = ctx.scene.canvas;
+    if (canvas) {
+      canvas.addEventListener('pointerdown', (ev) => {
+        if (!this.running || this.paused || this.ending || !this.lanes) return;
+        const p = this.ctx.scene.pickGround(ev.clientX, ev.clientY);
+        if (p && Math.abs(p.x) < BATTLE.spawnX + 5) {
+          this._selectLane(this.lanes.getNearestLane(p.z).id);
+        }
+      });
+      let hoverT = 0;
+      canvas.addEventListener('pointermove', (ev) => {
+        const now = performance.now();
+        if (now - hoverT < 110) return;
+        hoverT = now;
+        if (!this.running || this.paused || !this.lanes) return;
+        const p = this.ctx.scene.pickGround(ev.clientX, ev.clientY);
+        if (p && Math.abs(p.x) < BATTLE.spawnX + 5) {
+          const id = this.lanes.getNearestLane(p.z).id;
+          this.ctx.scene.setHoverLane(id);
+          this.hud.setHoverLane(id);
+        } else {
+          this.ctx.scene.setHoverLane(null);
+          this.hud.setHoverLane(null);
+        }
+      });
+      canvas.addEventListener('pointerleave', () => {
+        this.ctx.scene.setHoverLane(null);
+        this.hud.setHoverLane(null);
+      });
+    }
   }
 
   /* ================= lifecycle ================= */
@@ -39,6 +81,17 @@ export default class BattleScreen {
 
     this.entities = [];
     this.eid = 0;
+
+    /* lanes & formations (Milestone 2) */
+    this.lanes = scene.laneSystem;
+    this.formation = new FormationSystem(this.lanes);
+    this.unitCapEff = Math.min(BATTLE.unitCap, this.formation.totalSlots());
+    this.selectedLane = this.lanes.middleLane;
+    this.switchT = LANE_SWITCH.interval;
+    scene.setSelectedLane(this.selectedLane);
+    this.hud.setLaneCount(this.lanes.laneCount, this.lanes.lanes.map((l) => l.letter));
+    this.hud.setSelectedLane(this.selectedLane);
+
     this.credits = ECONOMY.start;
     this.supplyUsed = 0;
     this.deployedCount = {};
@@ -87,6 +140,10 @@ export default class BattleScreen {
     this.running = false;
     this.ending = false;
     this._endToken = null;
+    if (this.formation) this.formation.clear();
+    this.ctx.scene.setSelectedLane(null);
+    this.ctx.scene.setHoverLane(null);
+    this.hud.setHoverLane(null);
     this.ctx.scene.clearUnits();
     this.ctx.scene.restoreBase('player');
     this.ctx.scene.restoreBase('enemy');
@@ -159,7 +216,7 @@ export default class BattleScreen {
       this.waveT += dt;
       while (this.spawnQueue.length && this.waveT >= this.spawnQueue[0].t) {
         const s = this.spawnQueue.shift();
-        this._spawnEnemy(s.typeId);
+        this._spawnEnemy(s.typeId, s.laneId);
       }
       const enemiesAlive = this.entities.some((e) => e.side === 'enemy');
       if (!this.spawnQueue.length && !enemiesAlive) this._waveCleared();
@@ -174,6 +231,7 @@ export default class BattleScreen {
     this.waveT = 0;
     let budget = def.budget;
     let t = 1.0;
+    const isFinalWave = i === BATTLE.finalWave - 1;
     const affordable = () => UNIT_TYPES.filter((u) => u.cost <= budget);
     while (affordable().length && this.spawnQueue.length < 60) {
       const pool = affordable();
@@ -184,7 +242,11 @@ export default class BattleScreen {
         return def.heavy * 2.4;
       });
       budget -= type.cost;
-      this.spawnQueue.push({ t, typeId: type.id });
+      // deterministic lane distribution (final wave masses the center)
+      const nLanes = this.lanes ? this.lanes.laneCount : 1;
+      let laneId = (this.spawnQueue.length + i) % nLanes;
+      if (isFinalWave && nLanes > 1 && Math.random() < 0.5) laneId = Math.floor(nLanes / 2);
+      this.spawnQueue.push({ t, typeId: type.id, laneId });
       t += def.interval * rand(0.65, 1.3);
     }
     this.waveState = 'spawning';
@@ -215,24 +277,33 @@ export default class BattleScreen {
   }
 
   /* ================= entities ================= */
-  _spawnEnemy(typeId) {
-    if (this.entities.length >= BATTLE.unitCap) return;
+  _spawnEnemy(typeId, laneId) {
+    if (this.entities.length >= this.unitCapEff) return;
     const def = UNIT_TYPES.find((u) => u.id === typeId);
     const wv = waveDef(this.waveIdx);
-    this._addEntity(def, 'enemy', {
+    this._addEntity(def, 'enemy', laneId, {
       hp: def.hp * wv.hpScale,
       dmg: def.dmg * wv.dmgScale
     });
   }
 
-  _addEntity(def, side, mods = {}) {
-    const x = side === 'player' ? -BATTLE.spawnX : BATTLE.spawnX;
-    const z = rand(BATTLE.laneMin, BATTLE.laneMax);
-    const handle = this.ctx.scene.addUnitMesh(def, side, x, z);
+  /**
+   * Spawns a unit into a lane and assigns its formation slot.
+   * @param {object} def unit type definition
+   * @param {'player'|'enemy'} side
+   * @param {number} laneId target lane
+   * @param {object} [mods] stat overrides (wave scaling)
+   */
+  _addEntity(def, side, laneId, mods = {}) {
+    const role = ROLE_BY_UNIT[def.id] || 'MIDDLE';
+    const pos = this.lanes.getSpawnPosition(side, laneId, role);
+    const handle = this.ctx.scene.addUnitMesh(def, side, pos.x, pos.z);
     const e = {
       id: ++this.eid,
       def,
       side,
+      role,
+      laneId,
       size: def.size,
       hp: mods.hp ?? def.hp,
       dmg: mods.dmg ?? def.dmg,
@@ -240,50 +311,176 @@ export default class BattleScreen {
       rate: def.rate,
       speed: def.speed,
       cd: rand(0.1, 0.55),
-      x, z,
+      x: pos.x,
+      z: pos.z,
+      formJitter: rand(-FORMATION.jitterX, FORMATION.jitterX),
+      laneShifting: false,
+      shiftT: 0,
       value: def.cost,
       handle
     };
     e.maxHp = e.hp;
+    this.formation.assignSlot(e, laneId, role);
     this.ctx.scene.setUnitHP(handle, 1);
     this.entities.push(e);
     return e;
   }
 
+  /**
+   * Can `e` shoot `o`? Same lane, connected (adjacent) lane, or
+   * cross-lane capability (artillery).
+   */
+  _laneCompat(e, o) {
+    if (o.laneId === e.laneId) return true;
+    if (e.def.crossLane) return true;
+    return this.lanes.getValidTransitions(e.laneId).includes(o.laneId);
+  }
+
   _updateEntities(dt) {
     const scene = this.ctx.scene;
+    const anchors = this.formation.computeAnchors(this.entities);
+
     for (const e of this.entities) {
       e.cd -= dt;
+      if (e.shiftT > 0) {
+        e.shiftT -= dt;
+        if (e.shiftT <= 0) e.laneShifting = false;
+      }
       const dir = e.side === 'player' ? 1 : -1;
 
-      // target acquisition: nearest live hostile in range
+      // target acquisition: nearest live hostile in range AND in a reachable lane
       let target = null;
       let bestD = Infinity;
       for (const o of this.entities) {
         if (o.side === e.side || o.hp <= 0) continue;
         const dx = o.x - e.x, dz = o.z - e.z;
         const d2 = dx * dx + dz * dz;
-        if (d2 < bestD) { bestD = d2; target = o; }
+        if (d2 >= bestD) continue;
+        if (d2 > e.range * e.range) continue;
+        if (!this._laneCompat(e, o)) continue;
+        bestD = d2;
+        target = o;
       }
 
-      const inRange = target && Math.sqrt(bestD) <= e.range;
-      if (inRange) {
+      if (target) {
         if (e.cd <= 0) {
           e.cd = e.rate;
           this._fire(e, target);
         }
-      } else {
-        const limit = dir > 0 ? BATTLE.baseX - 1.6 : -(BATTLE.baseX - 1.6);
-        if ((dir > 0 && e.x < limit) || (dir < 0 && e.x > limit)) {
-          e.x += dir * e.speed * dt;
-          scene.moveUnit(e.handle, e.x, e.z);
-        } else if (e.cd <= 0) {
+        continue;
+      }
+
+      // march toward the formation slot; the front line pushes the anchor
+      const t = this.formation.getFormationTarget(e, anchors);
+      const limit = dir > 0 ? BATTLE.baseX - 1.6 : -(BATTLE.baseX - 1.6);
+      const atWall = dir > 0 ? e.x >= limit : e.x <= limit;
+
+      if (atWall && ((dir > 0 && t.x >= e.x) || (dir < 0 && t.x <= e.x))) {
+        // front rank grinding on the enemy base
+        if (e.cd <= 0) {
           e.cd = e.rate;
           this._hitBase(e);
         }
+        continue;
+      }
+
+      const dx = t.x - e.x;
+      const dz = t.z - e.z;
+      const dist = Math.hypot(dx, dz);
+      if (dist > 0.06) {
+        const step = Math.min(e.speed * dt, dist);
+        e.x += (dx / dist) * step;
+        e.z += (dz / dist) * step;
+        scene.moveUnit(e.handle, e.x, e.z, e.laneShifting ? 4.2 : 9);
       }
     }
     this.entities = this.entities.filter((e) => e.hp > 0);
+
+    // passive lane rebalancing
+    this.switchT -= dt;
+    if (this.switchT <= 0) {
+      this.switchT = LANE_SWITCH.interval;
+      this._autoLaneShift();
+    }
+  }
+
+  /* ================= lane control ================= */
+
+  _selectLane(id) {
+    if (!this.lanes) return;
+    const lane = this.lanes.getLane(id);
+    if (!lane || this.selectedLane === id) return;
+    this.selectedLane = id;
+    this.hud.setSelectedLane(id);
+    this.ctx.scene.setSelectedLane(id);
+    AudioFX.sfx('click');
+  }
+
+  _shiftLane(dirStep) {
+    if (!this.lanes) return;
+    const n = this.lanes.laneCount;
+    this._selectLane((this.selectedLane + dirStep + n) % n);
+  }
+
+  /**
+   * Passive lane-change ability: infantry (MIDDLE role) re-routes
+   * itself when its lane is overpopulated or another lane is left
+   * undefended against incoming hostiles. One move per side per tick.
+   */
+  _autoLaneShift() {
+    if (!this.lanes || this.lanes.laneCount < 2) return;
+    for (const side of ['player', 'enemy']) {
+      const allies = this.entities.filter((e) => e.side === side && e.hp > 0);
+      const counts = {};
+      this.lanes.lanes.forEach((l) => { counts[l.id] = 0; });
+      allies.forEach((e) => { counts[e.laneId] = (counts[e.laneId] || 0) + 1; });
+
+      const enemySide = side === 'player' ? 'enemy' : 'player';
+      const threats = {};
+      this.entities.forEach((e) => {
+        if (e.side === enemySide && e.hp > 0) threats[e.laneId] = (threats[e.laneId] || 0) + 1;
+      });
+
+      const movable = allies.filter(
+        (e) => LANE_SWITCH.roles.includes(e.role) && !e.laneShifting && e.laneId !== undefined
+      );
+      if (!movable.length) continue;
+
+      let pick = null;
+      let toLane = null;
+
+      // 1) answer an undefended lane under threat
+      for (const lane of this.lanes.lanes) {
+        const undefended = (threats[lane.id] || 0) > 0 && (counts[lane.id] || 0) === 0;
+        if (!undefended) continue;
+        const donor = movable.find((e) => (counts[e.laneId] || 0) >= 2 && this.lanes.getValidTransitions(e.laneId).includes(lane.id));
+        if (donor) { pick = donor; toLane = lane.id; break; }
+      }
+
+      // 2) relieve an overpopulated lane
+      if (!pick) {
+        for (const lane of this.lanes.lanes) {
+          if ((counts[lane.id] || 0) < LANE_SWITCH.over) continue;
+          const best = this.lanes.leastPopulatedNeighbour(lane.id, counts);
+          if (best === null) continue;
+          if ((counts[best] || 0) > (counts[lane.id] || 0) - LANE_SWITCH.relief) continue;
+          const cand = movable.find((e) => e.laneId === lane.id);
+          if (cand) { pick = cand; toLane = best; break; }
+        }
+      }
+
+      if (pick && toLane !== null && toLane !== pick.laneId) {
+        const from = pick.laneId;
+        this.formation.assignSlot(pick, toLane, pick.role); // releases + reforms both lanes
+        pick.laneShifting = true;
+        pick.shiftT = 1.6;
+        EventBus.emit('lane:changed', { side, unit: pick.def.name, from, to: toLane });
+        if (side === 'player') {
+          const letter = this.lanes.getLane(toLane).letter;
+          this.hud.announce(`${pick.def.name} → LANE ${letter}`, 'announce-ally');
+        }
+      }
+    }
   }
 
   _fire(e, target) {
@@ -349,6 +546,7 @@ export default class BattleScreen {
     scene.explode(new Vector3(t.x, 0.75, t.z), 0.85 + t.size * 0.35, t.side === 'enemy' ? 'amber' : 'red');
     AudioFX.sfx('explode');
     if (t.size >= 1.4 || Math.abs(t.x) > 22) scene.shake(0.55);
+    this.formation.releaseSlot(t); // survivors glide into the freed slots
     scene.removeUnit(t.handle);
     const idx = this.entities.indexOf(t);
     if (idx >= 0) this.entities.splice(idx, 1);
@@ -392,12 +590,12 @@ export default class BattleScreen {
     if (!def) return;
     if (this.credits < def.cost) { this.hud.flashError(id, 'funds'); return; }
     if (this.supplyUsed + def.supply > ECONOMY.supplyCap) { this.hud.flashError(id, 'supply'); return; }
-    if (this.entities.length >= BATTLE.unitCap) { modalManager.toast('UNIT CAP REACHED — FIELD SATURATED', 'warn'); return; }
+    if (this.entities.length >= this.unitCapEff) { modalManager.toast('UNIT CAP REACHED — FIELD SATURATED', 'warn'); return; }
 
     this.credits -= def.cost;
     this.supplyUsed += def.supply;
     this.deployedCount[id] = (this.deployedCount[id] || 0) + 1;
-    this._addEntity(def, 'player');
+    this._addEntity(def, 'player', this.selectedLane);
     this.hud.setReserve(id, this.deployedCount[id]);
     this.hud.setCredits(this.credits);
     this.hud.updateShop(Math.floor(this.credits), ECONOMY.supplyCap - this.supplyUsed);

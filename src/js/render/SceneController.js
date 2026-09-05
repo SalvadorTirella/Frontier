@@ -36,6 +36,9 @@ const AMBER = new Color3(1, 0.84, 0);
 const RED = new Color3(1, 0.28, 0.16);
 const HP_GREEN = new Color3(0.24, 1, 0.55);
 
+import LaneSystem from '../core/LaneSystem.js';
+import { LANE_CONFIG, BATTLE } from '../core/Config.js';
+
 export default class SceneController {
   constructor() {
     this.onTick = null;
@@ -112,6 +115,8 @@ export default class SceneController {
 
     this._buildBases();
     this._buildProps();
+    this.laneSystem = new LaneSystem({ count: LANE_CONFIG.count });
+    this._buildLanes();
     this._buildDust();
 
     this.engine.runRenderLoop(() => {
@@ -153,6 +158,137 @@ export default class SceneController {
     mat.emissiveColor = new Color3(0.5, 0.5, 0.5);
     mat.specularColor = Color3.Black();
     return mat;
+  }
+
+  /* ---------------- lanes (Milestone 2) ---------------- */
+
+  /**
+   * Builds lane floor lines, per-lane highlight strips, spawn/base
+   * markers per lane and the deploy arrow. Purely visual — the
+   * tactical data lives in this.laneSystem.
+   */
+  _buildLanes() {
+    const scene = this.scene;
+    const lanes = this.laneSystem.lanes;
+    const laneRoot = new TransformNode('lanes', scene);
+    this.laneRoot = laneRoot;
+
+    // inner boundary lines (subtle energy seams between corridors)
+    for (let i = 0; i < lanes.length - 1; i++) {
+      const z = (lanes[i].zCenter + lanes[i + 1].zCenter) / 2;
+      const line = MeshBuilder.CreateBox(`laneLine${i}`, { width: 58, height: 0.03, depth: 0.09 }, scene);
+      line.position.set(0, 0.02, z);
+      const m = this._emissiveMat(`laneLineM${i}`, CYAN, 0.5);
+      m.alpha = 0.3;
+      line.material = m;
+      line.parent = laneRoot;
+    }
+
+    // per-lane highlight strips (selection / hover feedback)
+    this._laneStripMats = [];
+    lanes.forEach((lane) => {
+      const strip = MeshBuilder.CreateBox(`laneStrip${lane.id}`, { width: 56, height: 0.02, depth: lane.width * 0.9 }, scene);
+      strip.position.set(0, 0.015, lane.zCenter);
+      const m = this._emissiveMat(`laneStripM${lane.id}`, CYAN, 0.7);
+      m.alpha = 0;
+      strip.material = m;
+      strip.parent = laneRoot;
+      this._laneStripMats.push(m);
+    });
+
+    // spawn markers per lane (amber = player deploy, red = enemy ingress)
+    lanes.forEach((lane) => {
+      const pw = lane.width * 0.62;
+      const pm = MeshBuilder.CreateBox(`spawnP${lane.id}`, { width: 0.55, height: 0.04, depth: pw }, scene);
+      pm.position.set(-BATTLE.spawnX, 0.03, lane.zCenter);
+      pm.material = this._emissiveMat(`spawnPM${lane.id}`, AMBER, 0.85);
+      pm.parent = laneRoot;
+      const em = MeshBuilder.CreateBox(`spawnE${lane.id}`, { width: 0.55, height: 0.04, depth: pw }, scene);
+      em.position.set(BATTLE.spawnX, 0.03, lane.zCenter);
+      em.material = this._emissiveMat(`spawnEM${lane.id}`, RED, 0.85);
+      em.parent = laneRoot;
+    });
+
+    // deploy arrow — marks the currently selected lane
+    const arrow = MeshBuilder.CreateCylinder('deployArrow', { diameterTop: 0, diameterBottom: 1.1, height: 1.5, tessellation: 3 }, scene);
+    arrow.rotation.z = -Math.PI / 2;
+    arrow.rotation.y = Math.PI / 2;
+    this.deployArrowMat = this._emissiveMat('deployArrowM', AMBER, 1.15);
+    arrow.material = this.deployArrowMat;
+    arrow.position.set(-BATTLE.spawnX + 2.2, 0.35, lanes[this.laneSystem.middleLane].zCenter);
+    arrow.parent = laneRoot;
+    this.deployArrow = arrow;
+    arrow.isVisible = false;
+    this.deployArrowMat.alpha = 0.9;
+
+    this.selectedLane = null;
+    this.hoverLane = null;
+  }
+
+  /**
+   * Highlights the selected lane and moves the deploy arrow.
+   * @param {number|null} laneId
+   */
+  setSelectedLane(laneId) {
+    this.selectedLane = laneId;
+    if (this.deployArrow) {
+      if (laneId === null || laneId === undefined) {
+        this.deployArrow.isVisible = false;
+      } else {
+        const lane = this.laneSystem.getLane(laneId);
+        if (lane) {
+          this.deployArrow.isVisible = true;
+          this.deployArrow.position.z = lane.zCenter;
+        }
+      }
+    }
+    this._refreshLaneStrips();
+  }
+
+  /**
+   * Soft hover preview over a lane.
+   * @param {number|null} laneId
+   */
+  setHoverLane(laneId) {
+    if (this.hoverLane === laneId) return;
+    this.hoverLane = laneId;
+    this._refreshLaneStrips();
+  }
+
+  _refreshLaneStrips() {
+    if (!this._laneStripMats) return;
+    this._laneStripMats.forEach((m, id) => {
+      let a = 0;
+      if (id === this.selectedLane) a = 0.11;
+      else if (id === this.hoverLane) a = 0.055;
+      m.alpha = a;
+      m.emissiveColor = (id === this.selectedLane ? AMBER : CYAN).scale(id === this.selectedLane ? 0.8 : 0.7);
+    });
+  }
+
+  /**
+   * Ray-casts the screen point against the ground plane (y = 0).
+   * @param {number} clientX
+   * @param {number} clientY
+   * @returns {{x:number, z:number}|null}
+   */
+  pickGround(clientX, clientY) {
+    if (!this.scene || !this.camera || !this.engine) return null;
+    const rect = this.canvas.getBoundingClientRect();
+    if (rect.width < 2 || rect.height < 2) return null;
+    const rw = this.engine.getRenderWidth();
+    const rh = this.engine.getRenderHeight();
+    const px = ((clientX - rect.left) / rect.width) * rw;
+    const py = ((clientY - rect.top) / rect.height) * rh;
+    const view = this.scene.getViewMatrix();
+    const proj = this.scene.getProjectionMatrix();
+    const near = Vector3.Unproject(new Vector3(px, py, 0), rw, rh, Matrix.Identity(), view, proj);
+    const far = Vector3.Unproject(new Vector3(px, py, 1), rw, rh, Matrix.Identity(), view, proj);
+    const dir = far.subtract(near);
+    if (Math.abs(dir.y) < 1e-5) return null;
+    const t = -near.y / dir.y;
+    if (t < 0) return null;
+    return { x: near.x + dir.x * t, z: near.z + dir.z * t };
   }
 
   _emissiveMat(name, color, intensity = 1, alpha = 1) {
@@ -375,14 +511,24 @@ export default class SceneController {
     this.shadowGen.addShadowCaster(body);
     this.shadowGen.addShadowCaster(turret);
 
-    const handle = { root, hpFg, hpMat: fgMat, def, side, id: root.uniqueId };
+    const handle = { root, hpFg, hpMat: fgMat, def, side, id: root.uniqueId, tx: x, tz: z, lerp: 9 };
     this.units.push(handle);
     return handle;
   }
 
-  moveUnit(handle, x, z) {
-    handle.root.position.x = x;
-    handle.root.position.z = z;
+  /**
+   * Sets the movement target of a unit. The mesh interpolates
+   * smoothly toward it inside the render loop (lane changes and
+   * formation reforms become visible glides instead of teleports).
+   * @param {object} handle
+   * @param {number} x
+   * @param {number} z
+   * @param {number} [lerp=9] exponential smoothing speed
+   */
+  moveUnit(handle, x, z, lerp = 9) {
+    handle.tx = x;
+    handle.tz = z;
+    handle.lerp = lerp;
   }
 
   setUnitHP(handle, pct) {
@@ -558,6 +704,21 @@ export default class SceneController {
         const f = 0.45 + 0.55 * (0.5 + 0.5 * Math.sin(t * b.speed * Math.PI));
         b.mat.emissiveColor = b.base.scale(f * 1.4);
       });
+    }
+
+    // unit movement interpolation (targets come from the battle sim)
+    for (let i = 0; i < this.units.length; i++) {
+      const u = this.units[i];
+      const p = u.root.position;
+      const kk = 1 - Math.exp(-(u.lerp || 9) * dt);
+      p.x += (u.tx - p.x) * kk;
+      p.z += (u.tz - p.z) * kk;
+    }
+
+    // deploy arrow pulse
+    if (this.deployArrow && this.deployArrow.isVisible) {
+      this.deployArrow.position.y = 0.35 + Math.sin(t * 3.2) * 0.12;
+      this.deployArrowMat.emissiveColor = AMBER.scale(0.95 + 0.35 * Math.sin(t * 3.2));
     }
 
     // pending scheduled fx

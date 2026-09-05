@@ -39,7 +39,7 @@ export const UNIT_TYPES = [
   { id: 'rifleman',  name: 'RIFLEMAN',  cost: 100, hp: 78,  dmg: 9,  range: 8,  rate: 0.85, speed: 3.5,  supply: 1, size: 1.0,  hotkey: '1' },
   { id: 'gunner',    name: 'GUNNER',    cost: 240, hp: 135, dmg: 16, range: 9,  rate: 0.55, speed: 2.8,  supply: 2, size: 1.12, hotkey: '2' },
   { id: 'tank',      name: 'TANK',      cost: 520, hp: 380, dmg: 34, range: 7,  rate: 1.35, speed: 1.75, supply: 4, size: 1.5,  hotkey: '3' },
-  { id: 'artillery', name: 'ARTILLERY', cost: 850, hp: 170, dmg: 62, range: 14, rate: 2.2,  speed: 1.35, supply: 3, size: 1.22, hotkey: '4', splash: 2.7 }
+  { id: 'artillery', name: 'ARTILLERY', cost: 850, hp: 170, dmg: 62, range: 14, rate: 2.2,  speed: 1.35, supply: 3, size: 1.22, hotkey: '4', splash: 2.7, crossLane: true }
 ];
 
 export const ABILITY = { id: 'airstrike', name: 'AIRSTRIKE', cooldown: 25, dmg: 150, radius: 6.5, hotkey: 'SPACE' };
@@ -65,6 +65,35 @@ export const BATTLE = {
   unitCap: 64,
   comboWindow: 2.6
 };
+
+/* ---------- LANES & FORMATIONS (Milestone 2) ---------- */
+export const LANE_CONFIG = {
+  count: 3 // 1..5 supported — topology built by LaneSystem
+};
+
+export const ROLE_BY_UNIT = {
+  tank: 'FRONT',
+  rifleman: 'MIDDLE',
+  gunner: 'MIDDLE',
+  artillery: 'BACK'
+};
+
+export const FORMATION = {
+  colSpacing: 1.7,                 // lateral distance between slots of the same role
+  leadPush: 1.5,                   // forward lead that keeps the formation marching
+  depth: { FRONT: 0, MIDDLE: 2.4, BACK: 5.0 }, // distance behind the front line
+  jitterX: 0.55,                   // per-unit organic offset along the advance axis
+  slotsPerLane: 22                 // soft slot budget per lane (feeds the unit cap)
+};
+
+export const LANE_SWITCH = {
+  interval: 2.2,   // seconds between passive re-evaluations
+  over: 5,         // a lane with >= this many allies is "overpopulated"
+  relief: 3,       // required population gap to justify a transfer
+  roles: ['MIDDLE'] // only infantry re-routes itself automatically
+};
+
+export const LANE_KEYS = ['KeyQ', 'KeyW', 'KeyE', 'KeyR', 'KeyT'];
 
 /* Wave generator */
 export function waveDef(i) {

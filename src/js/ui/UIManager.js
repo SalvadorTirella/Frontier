@@ -327,6 +327,10 @@ const UIManager = {
       const map = { Digit1: 'rifleman', Digit2: 'gunner', Digit3: 'tank', Digit4: 'artillery' };
       if (map[e.code]) { EventBus.emit('buy:unit', { id: map[e.code] }); e.preventDefault(); }
       if (e.code === 'Space') { EventBus.emit('ability:use'); e.preventDefault(); }
+      const laneIdx = LANE_KEYS.indexOf(e.code);
+      if (laneIdx >= 0) { EventBus.emit('lane:select', { id: laneIdx }); e.preventDefault(); }
+      if (e.code === 'ArrowLeft') { EventBus.emit('lane:shift', { dir: -1 }); e.preventDefault(); }
+      if (e.code === 'ArrowRight') { EventBus.emit('lane:shift', { dir: 1 }); e.preventDefault(); }
     };
     window.addEventListener('keydown', onKey);
     this.disposers.push(() => window.removeEventListener('keydown', onKey));
