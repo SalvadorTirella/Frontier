@@ -2,19 +2,8 @@
    TACTICAL ARMY BATTLE — Global Config & Balance Data
    ============================================================ */
 
-export const BASE_W = 720;
-export const BASE_H = 1280;
-
-/* ---------- PORTRAIT LANE GEOMETRY (world units) ----------
-   Corredor vertical recto: avanza sobre el eje Z (jugador abajo +Z,
-   enemigo arriba -Z). 3 carriles paralelos sobre el eje X.          */
-export const LANES = {
-  xs: [-5, 0, 5],        // posición X de cada carril
-  width: 5,              // ancho de cada carril
-  wallX: 7.6,            // borde exterior del corredor (líneas neón)
-  baseZ: 30,             // posición Z de las bases (±)
-  spawnZ: 27             // línea de despliegue (±)
-};
+export const BASE_W = 1280;
+export const BASE_H = 720;
 
 export const COLORS = {
   cyan: '#00C6FF',
